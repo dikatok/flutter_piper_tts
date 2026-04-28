@@ -1,28 +1,34 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'dart:async';
+import 'package:flutter/services.dart';
+import 'package:flutter_piper_tts/flutter_piper_tts.dart';
+import 'package:path/path.dart';
+import 'package:path_provider/path_provider.dart';
 
-import 'package:flutter_piper_tts/flutter_piper_tts.dart' as flutter_piper_tts;
-
-void main() {
-  runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final (modelPath, configPath) = await copyModelFromAssets();
+  PiperTTS.init();
+  final tts = PiperTTS.create(modelPath, configPath);
+  compute(tts.speak, "Hello World!");
+  runApp(MyApp(tts: tts));
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+  final PiperTTS tts;
+
+  const MyApp({super.key, required this.tts});
 
   @override
   State<MyApp> createState() => _MyAppState();
 }
 
 class _MyAppState extends State<MyApp> {
-  late int sumResult;
-  late Future<int> sumAsyncResult;
-
   @override
   void initState() {
     super.initState();
-    sumResult = flutter_piper_tts.sum(1, 2);
-    sumAsyncResult = flutter_piper_tts.sumAsync(3, 4);
   }
 
   @override
@@ -44,24 +50,11 @@ class _MyAppState extends State<MyApp> {
                   textAlign: .center,
                 ),
                 spacerSmall,
-                Text(
-                  'sum(1, 2) = $sumResult',
-                  style: textStyle,
-                  textAlign: .center,
-                ),
-                spacerSmall,
-                FutureBuilder<int>(
-                  future: sumAsyncResult,
-                  builder: (BuildContext context, AsyncSnapshot<int> value) {
-                    final displayValue = (value.hasData)
-                        ? value.data
-                        : 'loading';
-                    return Text(
-                      'await sumAsync(3, 4) = $displayValue',
-                      style: textStyle,
-                      textAlign: .center,
-                    );
+                TextButton(
+                  onPressed: () {
+                    compute(widget.tts.speak, "Hello World!");
                   },
+                  child: const Text("speak", style: textStyle),
                 ),
               ],
             ),
@@ -70,4 +63,35 @@ class _MyAppState extends State<MyApp> {
       ),
     );
   }
+}
+
+Future<(String, String)> copyModelFromAssets() async {
+  final directory = await getApplicationSupportDirectory();
+  final modelPath = join(directory.path, 'en_US-hfc_female-medium.onnx');
+  final configPath = join(directory.path, 'en_US-hfc_female-medium.onnx.json');
+
+  final exists = await File(modelPath).exists();
+
+  if (!exists) {
+    final modelData = await rootBundle.load(
+      'assets/en_US-hfc_female-medium.onnx',
+    );
+    List<int> bytes = modelData.buffer.asUint8List(
+      modelData.offsetInBytes,
+      modelData.lengthInBytes,
+    );
+
+    await File(modelPath).writeAsBytes(bytes, flush: true);
+
+    final configData = await rootBundle.load(
+      'assets/en_US-hfc_female-medium.onnx.json',
+    );
+    bytes = configData.buffer.asUint8List(
+      configData.offsetInBytes,
+      configData.lengthInBytes,
+    );
+    await File(configPath).writeAsBytes(bytes, flush: true);
+  }
+
+  return (modelPath, configPath);
 }

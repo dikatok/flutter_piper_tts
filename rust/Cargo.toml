@@ -1,0 +1,20 @@
+[package]
+name = "rust"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+espeak-ng = { version = "0.1.1", features = ["bundled-data"] }
+ndarray = "0.17.2"
+ort = "2.0.0-rc.12"
+rodio = "0.22.2"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+sysdirs = "0.9.4"
+
+[build-dependencies]
+cbindgen = "0.29.0"
+
+[lib]
+crate-type = ["staticlib", "cdylib"]
