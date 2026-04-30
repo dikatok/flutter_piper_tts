@@ -21,6 +21,15 @@ external FFICreateInstanceResponse create_instance(
 @ffi.Native<FFISpeakResponse Function(ffi.Int32, ffi.Pointer<ffi.Char>)>()
 external FFISpeakResponse speak(int fd, ffi.Pointer<ffi.Char> text);
 
+@ffi.Native<FFIPauseResponse Function(ffi.Int32)>()
+external FFIPauseResponse pause(int fd);
+
+@ffi.Native<FFIResumeResponse Function(ffi.Int32)>()
+external FFIResumeResponse resume(int fd);
+
+@ffi.Native<FFIStopResponse Function(ffi.Int32)>()
+external FFIStopResponse stop(int fd);
+
 final class FFIInitResponse extends ffi.Struct {
   external ffi.Pointer<ffi.Char> error_message;
 }
@@ -33,5 +42,17 @@ final class FFICreateInstanceResponse extends ffi.Struct {
 }
 
 final class FFISpeakResponse extends ffi.Struct {
+  external ffi.Pointer<ffi.Char> error_message;
+}
+
+final class FFIPauseResponse extends ffi.Struct {
+  external ffi.Pointer<ffi.Char> error_message;
+}
+
+final class FFIResumeResponse extends ffi.Struct {
+  external ffi.Pointer<ffi.Char> error_message;
+}
+
+final class FFIStopResponse extends ffi.Struct {
   external ffi.Pointer<ffi.Char> error_message;
 }

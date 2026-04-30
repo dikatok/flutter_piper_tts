@@ -21,7 +21,7 @@ pub struct InferenceConfig {
 
 #[derive(Deserialize)]
 pub struct LanguageConfig {
-    pub family: String,
+    pub family: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -31,6 +31,6 @@ pub struct ModelConfig {
     pub language: LanguageConfig,
     pub inference: InferenceConfig,
     pub num_speakers: u32,
-    pub speaker_id_map: HashMap<String, i64>,
+    // pub speaker_id_map: HashMap<String, i64>,
     pub phoneme_id_map: HashMap<char, Vec<i64>>,
 }

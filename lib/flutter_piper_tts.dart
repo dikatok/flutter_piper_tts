@@ -56,6 +56,30 @@ class PiperTTS {
       calloc.free(textPointer);
     }
   }
+
+  void pause([dynamic _]) {
+    final result = g.pause(fd);
+    final g.FFIPauseResponse(:error_message) = result;
+    if (error_message.isNotEmpty) {
+      throw Exception(error_message.toDartString());
+    }
+  }
+
+  void resume([dynamic _]) {
+    final result = g.resume(fd);
+    final g.FFIResumeResponse(:error_message) = result;
+    if (error_message.isNotEmpty) {
+      throw Exception(error_message.toDartString());
+    }
+  }
+
+  void stop([dynamic _]) {
+    final result = g.stop(fd);
+    final g.FFIStopResponse(:error_message) = result;
+    if (error_message.isNotEmpty) {
+      throw Exception(error_message.toDartString());
+    }
+  }
 }
 
 extension on Pointer<Char> {

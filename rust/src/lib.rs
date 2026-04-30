@@ -4,21 +4,23 @@ use std::{
     os::raw::c_char,
     path::Path,
     sync::{
-        LazyLock, RwLock,
+        LazyLock, Mutex, OnceLock, RwLock,
         atomic::{AtomicI32, Ordering},
     },
 };
 
 use espeak_ng::install_bundled_data;
-use log::{debug, info};
+use log::debug;
 
-use crate::{helpers::c_char_to_str, instance::Instance};
+use crate::{audio::AudioPlayer, helpers::c_char_to_str, instance::Instance, logging::init_logger};
 
+pub mod audio;
 pub mod config;
 pub mod error;
 pub mod helpers;
 pub mod inference;
 pub mod instance;
+pub mod logging;
 
 static INSTANCES: LazyLock<RwLock<HashMap<i32, Instance>>> =
     LazyLock::new(|| RwLock::new(HashMap::new()));
@@ -27,24 +29,18 @@ static FD: AtomicI32 = AtomicI32::new(0);
 
 static ESPEAK_DATA_DIR: LazyLock<RwLock<String>> = LazyLock::new(|| RwLock::new("".to_string()));
 
+static AUDIO_PLAYER: OnceLock<Mutex<AudioPlayer>> = OnceLock::new();
+
 #[unsafe(no_mangle)]
 pub extern "C" fn init(data_dir: *const c_char) -> FFIInitResponse {
-    #[cfg(target_os = "android")]
-    {
-        android_logger::init_once(
-            android_logger::Config::default()
-                .with_max_level(log::LevelFilter::Debug)
-                .with_tag("MY_RUST_APP"),
-        );
-        debug!("android logger initialized");
-    }
+    init_logger();
 
     let mut global_data_dir = ESPEAK_DATA_DIR.write().unwrap();
     let binding = Path::new(c_char_to_str(data_dir)).join("espeak-ng-data");
     let path = binding.as_path();
     *global_data_dir = path.to_str().unwrap().to_string();
+    debug!("espeak data dir: {}", path.display());
 
-    debug!("installing espeak bundled data");
     match install_bundled_data(path) {
         Ok(_) => (),
         Err(err) => {
@@ -53,7 +49,10 @@ pub extern "C" fn init(data_dir: *const c_char) -> FFIInitResponse {
             };
         }
     };
-    info!("espeak bundled data installed");
+    debug!("espeak bundled data installed");
+
+    AUDIO_PLAYER.get_or_init(|| Mutex::new(AudioPlayer::default()));
+    debug!("audio player initialized");
 
     FFIInitResponse {
         error_message: convert_string_to_cstring(""),
@@ -87,23 +86,81 @@ pub extern "C" fn create_instance(
 
 #[unsafe(no_mangle)]
 pub extern "C" fn speak(fd: i32, text: *const c_char) -> FFISpeakResponse {
-    println!("speak");
+    with_instance_mut(
+        fd,
+        FFISpeakResponse {
+            error_message: convert_string_to_cstring("Instance not found"),
+        },
+        |instance| {
+            // your logic here
+            match instance.speak(c_char_to_str(text)) {
+                Ok(_) => FFISpeakResponse {
+                    error_message: convert_string_to_cstring(""),
+                },
+                Err(err) => FFISpeakResponse {
+                    error_message: convert_string_to_cstring(&err.message),
+                },
+            }
+        },
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn pause(fd: i32) -> FFIPauseResponse {
+    with_instance_mut(
+        fd,
+        FFIPauseResponse {
+            error_message: convert_string_to_cstring("Instance not found"),
+        },
+        |instance| {
+            instance.pause();
+            FFIPauseResponse {
+                error_message: convert_string_to_cstring(""),
+            }
+        },
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn resume(fd: i32) -> FFIResumeResponse {
+    with_instance_mut(
+        fd,
+        FFIResumeResponse {
+            error_message: convert_string_to_cstring("Instance not found"),
+        },
+        |instance| {
+            instance.resume();
+            FFIResumeResponse {
+                error_message: convert_string_to_cstring(""),
+            }
+        },
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn stop(fd: i32) -> FFIStopResponse {
+    with_instance_mut(
+        fd,
+        FFIStopResponse {
+            error_message: convert_string_to_cstring("Instance not found"),
+        },
+        |instance| {
+            instance.stop();
+            FFIStopResponse {
+                error_message: convert_string_to_cstring(""),
+            }
+        },
+    )
+}
+
+fn with_instance_mut<T, F>(fd: i32, not_found: T, f: F) -> T
+where
+    F: FnOnce(&mut Instance) -> T,
+{
     let mut binding = INSTANCES.write().unwrap();
-    let instance = match binding.get_mut(&fd) {
-        Some(model) => model,
-        None => {
-            return FFISpeakResponse {
-                error_message: convert_string_to_cstring("Instance not found"),
-            };
-        }
-    };
-    match instance.speak(c_char_to_str(text)) {
-        Ok(_) => FFISpeakResponse {
-            error_message: convert_string_to_cstring(""),
-        },
-        Err(err) => FFISpeakResponse {
-            error_message: convert_string_to_cstring(&err.message),
-        },
+    match binding.get_mut(&fd) {
+        Some(instance) => f(instance),
+        None => not_found,
     }
 }
 
@@ -124,5 +181,20 @@ pub struct FFICreateInstanceResponse {
 
 #[repr(C)]
 pub struct FFISpeakResponse {
+    pub error_message: *mut c_char,
+}
+
+#[repr(C)]
+pub struct FFIPauseResponse {
+    pub error_message: *mut c_char,
+}
+
+#[repr(C)]
+pub struct FFIResumeResponse {
+    pub error_message: *mut c_char,
+}
+
+#[repr(C)]
+pub struct FFIStopResponse {
     pub error_message: *mut c_char,
 }

@@ -1,21 +1,31 @@
 [package]
-name = "rust"
+name = "flutter_piper_tts_native"
 version = "0.0.0"
 edition = "2024"
 publish = false
 
 [dependencies]
-android_logger = "0.15.1"
 espeak-ng = { version = "0.1.1", features = ["bundled-data"] }
 log = "0.4.29"
 ndarray = "0.17.2"
-tinyaudio = "2.0.0"
 ort = "2.0.0-rc.12"
+regex = "1.12.3"
+ringbuf = "0.4.8"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
+tinyaudio = "2.0.0"
 
 [build-dependencies]
 cbindgen = "0.29.0"
+
+[target.'cfg(target_os = "android")'.dependencies]
+android_logger = "0.15.1"
+
+[target.'cfg(any(target_os = "ios"))'.dependencies]
+oslog = { version = "0.2.0", features = ["logger"] }
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+env_logger = "0.11.10"
 
 [lib]
 crate-type = ["staticlib", "cdylib"]

@@ -6,6 +6,7 @@ environment:
   sdk: ^3.11.5
 
 dependencies:
+  android_libcpp_shared: ^0.1.1
   code_assets: ^1.0.0
   ffi: ^2.2.0
   hooks: ^1.0.3

@@ -7,6 +7,13 @@ void main() {
   FfiGenerator(
     headers: Headers(entryPoints: [packageRoot.resolve('rust/bindings.h')]),
     output: Output(dartFile: packageRoot.resolve('lib/ffi.g.dart')),
-    functions: Functions.includeSet({"init", 'create_instance', 'speak'}),
+    functions: Functions.includeSet({
+      "init",
+      'create_instance',
+      'speak',
+      'pause',
+      'resume',
+      'stop',
+    }),
   ).generate();
 }

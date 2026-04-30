@@ -36,7 +36,6 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     const textStyle = TextStyle(fontSize: 25);
-    const spacerSmall = SizedBox(height: 10);
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(title: const Text('Native Packages')),
@@ -44,6 +43,7 @@ class _MyAppState extends State<MyApp> {
           child: Container(
             padding: const .all(10),
             child: Column(
+              spacing: 10,
               children: [
                 TextField(
                   maxLines: null,
@@ -52,12 +52,29 @@ class _MyAppState extends State<MyApp> {
                   decoration: InputDecoration(hintText: 'Type something...'),
                   controller: controller,
                 ),
-                spacerSmall,
                 TextButton(
                   onPressed: () {
                     compute(widget.tts.speak, controller.text);
                   },
                   child: const Text("speak", style: textStyle),
+                ),
+                TextButton(
+                  onPressed: () {
+                    compute(widget.tts.pause, null);
+                  },
+                  child: const Text("pause", style: textStyle),
+                ),
+                TextButton(
+                  onPressed: () {
+                    compute(widget.tts.resume, null);
+                  },
+                  child: const Text("resume", style: textStyle),
+                ),
+                TextButton(
+                  onPressed: () {
+                    compute(widget.tts.stop, null);
+                  },
+                  child: const Text("stop", style: textStyle),
                 ),
               ],
             ),
@@ -70,14 +87,14 @@ class _MyAppState extends State<MyApp> {
 
 Future<(String, String)> copyModelFromAssets() async {
   final directory = await getApplicationSupportDirectory();
-  final modelPath = join(directory.path, 'en_US-hfc_male-medium.onnx');
-  final configPath = join(directory.path, 'en_US-hfc_male-medium.onnx.json');
+  final modelPath = join(directory.path, 'en_US-hfc_female-medium.onnx');
+  final configPath = join(directory.path, 'en_US-hfc_female-medium.onnx.json');
 
   final exists = await File(modelPath).exists();
 
   if (!exists) {
     final modelData = await rootBundle.load(
-      'assets/en_US-hfc_male-medium.onnx',
+      'assets/en_US-hfc_female-medium.onnx',
     );
     List<int> bytes = modelData.buffer.asUint8List(
       modelData.offsetInBytes,
@@ -87,7 +104,7 @@ Future<(String, String)> copyModelFromAssets() async {
     await File(modelPath).writeAsBytes(bytes, flush: true);
 
     final configData = await rootBundle.load(
-      'assets/en_US-hfc_male-medium.onnx.json',
+      'assets/en_US-hfc_female-medium.onnx.json',
     );
     bytes = configData.buffer.asUint8List(
       configData.offsetInBytes,
