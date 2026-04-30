@@ -1,6 +1,8 @@
 name: flutter_piper_tts
-description: "A new Dart FFI package project."
-version: 0.0.1
+description: "TTS in Dart using Piper TTS models + audio player in one package."
+version: 0.1.0
+repository: https://github.com/dikatok/flutter_piper_tts
+topics: [ tts, audio, flutter ]
 
 environment:
   sdk: ^3.11.5
