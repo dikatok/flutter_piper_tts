@@ -14,7 +14,6 @@ dependencies:
   flutter_piper_tts:
     path: ../
   cupertino_icons: ^1.0.8
-  android_libcpp_shared: ^0.1.1
   path: ^1.9.1
   path_provider: ^2.1.5
 

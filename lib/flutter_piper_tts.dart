@@ -2,13 +2,27 @@ import 'dart:ffi';
 
 import 'package:ffi/ffi.dart';
 import 'package:flutter_piper_tts/ffi.g.dart' as g;
+import 'package:path_provider/path_provider.dart';
 
 class PiperTTS {
   final int fd;
 
   PiperTTS._(this.fd);
 
-  static void init() => g.init();
+  static Future<void> init({String? dataDir}) async {
+    final dataDirPointer =
+        (dataDir ?? (await getApplicationSupportDirectory()).path)
+            .toNativeUtf8();
+    try {
+      final result = g.init(dataDirPointer.cast<Char>());
+      final g.FFIInitResponse(:error_message) = result;
+      if (error_message.isNotEmpty) {
+        throw Exception(error_message.toDartString());
+      }
+    } finally {
+      calloc.free(dataDirPointer);
+    }
+  }
 
   static PiperTTS create(String modelPath, String configPath) {
     final modelPathPointer = modelPath.toNativeUtf8();

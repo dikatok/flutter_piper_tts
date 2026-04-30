@@ -10,6 +10,8 @@ dependencies:
   ffi: ^2.2.0
   hooks: ^1.0.3
   native_toolchain_rust: ^1.0.4
+  path: ^1.9.1
+  path_provider: ^2.1.5
 
 dev_dependencies:
   ffigen: ^20.1.1

@@ -10,7 +10,7 @@ import 'package:path_provider/path_provider.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final (modelPath, configPath) = await copyModelFromAssets();
-  PiperTTS.init();
+  await PiperTTS.init();
   final tts = PiperTTS.create(modelPath, configPath);
   compute(tts.speak, "Hello World!");
   runApp(MyApp(tts: tts));
@@ -26,6 +26,8 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  final controller = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -43,16 +45,17 @@ class _MyAppState extends State<MyApp> {
             padding: const .all(10),
             child: Column(
               children: [
-                const Text(
-                  'This calls a native function through FFI that is shipped as source in the package. '
-                  'The native code is built as part of the Flutter Runner build.',
-                  style: textStyle,
-                  textAlign: .center,
+                TextField(
+                  maxLines: null,
+                  minLines: 1,
+                  keyboardType: TextInputType.multiline,
+                  decoration: InputDecoration(hintText: 'Type something...'),
+                  controller: controller,
                 ),
                 spacerSmall,
                 TextButton(
                   onPressed: () {
-                    compute(widget.tts.speak, "Hello World!");
+                    compute(widget.tts.speak, controller.text);
                   },
                   child: const Text("speak", style: textStyle),
                 ),
@@ -67,14 +70,14 @@ class _MyAppState extends State<MyApp> {
 
 Future<(String, String)> copyModelFromAssets() async {
   final directory = await getApplicationSupportDirectory();
-  final modelPath = join(directory.path, 'en_US-hfc_female-medium.onnx');
-  final configPath = join(directory.path, 'en_US-hfc_female-medium.onnx.json');
+  final modelPath = join(directory.path, 'en_US-hfc_male-medium.onnx');
+  final configPath = join(directory.path, 'en_US-hfc_male-medium.onnx.json');
 
   final exists = await File(modelPath).exists();
 
   if (!exists) {
     final modelData = await rootBundle.load(
-      'assets/en_US-hfc_female-medium.onnx',
+      'assets/en_US-hfc_male-medium.onnx',
     );
     List<int> bytes = modelData.buffer.asUint8List(
       modelData.offsetInBytes,
@@ -84,7 +87,7 @@ Future<(String, String)> copyModelFromAssets() async {
     await File(modelPath).writeAsBytes(bytes, flush: true);
 
     final configData = await rootBundle.load(
-      'assets/en_US-hfc_female-medium.onnx.json',
+      'assets/en_US-hfc_male-medium.onnx.json',
     );
     bytes = configData.buffer.asUint8List(
       configData.offsetInBytes,

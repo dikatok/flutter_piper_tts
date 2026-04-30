@@ -22,7 +22,7 @@ typedef struct FFISpeakResponse {
   char *error_message;
 } FFISpeakResponse;
 
-struct FFIInitResponse init(void);
+struct FFIInitResponse init(const char *data_dir);
 
 struct FFICreateInstanceResponse create_instance(const char *model_path, const char *config_path);
 

@@ -4,8 +4,8 @@
 // ignore_for_file: type=lint, unused_import
 import 'dart:ffi' as ffi;
 
-@ffi.Native<FFIInitResponse Function()>()
-external FFIInitResponse init();
+@ffi.Native<FFIInitResponse Function(ffi.Pointer<ffi.Char>)>()
+external FFIInitResponse init(ffi.Pointer<ffi.Char> data_dir);
 
 @ffi.Native<
   FFICreateInstanceResponse Function(

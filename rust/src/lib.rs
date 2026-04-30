@@ -10,6 +10,7 @@ use std::{
 };
 
 use espeak_ng::install_bundled_data;
+use log::{debug, info};
 
 use crate::{helpers::c_char_to_str, instance::Instance};
 
@@ -24,13 +25,27 @@ static INSTANCES: LazyLock<RwLock<HashMap<i32, Instance>>> =
 
 static FD: AtomicI32 = AtomicI32::new(0);
 
+static ESPEAK_DATA_DIR: LazyLock<RwLock<String>> = LazyLock::new(|| RwLock::new("".to_string()));
+
 #[unsafe(no_mangle)]
-pub extern "C" fn init() -> FFIInitResponse {
-    println!("init");
-    let binding = sysdirs::config_dir().unwrap().join("espeak-ng-data");
-    let data_path = binding.as_path();
-    println!("data path: {}", data_path.display());
-    match install_bundled_data(data_path) {
+pub extern "C" fn init(data_dir: *const c_char) -> FFIInitResponse {
+    #[cfg(target_os = "android")]
+    {
+        android_logger::init_once(
+            android_logger::Config::default()
+                .with_max_level(log::LevelFilter::Debug)
+                .with_tag("MY_RUST_APP"),
+        );
+        debug!("android logger initialized");
+    }
+
+    let mut global_data_dir = ESPEAK_DATA_DIR.write().unwrap();
+    let binding = Path::new(c_char_to_str(data_dir)).join("espeak-ng-data");
+    let path = binding.as_path();
+    *global_data_dir = path.to_str().unwrap().to_string();
+
+    debug!("installing espeak bundled data");
+    match install_bundled_data(path) {
         Ok(_) => (),
         Err(err) => {
             return FFIInitResponse {
@@ -38,7 +53,8 @@ pub extern "C" fn init() -> FFIInitResponse {
             };
         }
     };
-    println!("data installed");
+    info!("espeak bundled data installed");
+
     FFIInitResponse {
         error_message: convert_string_to_cstring(""),
     }
@@ -62,9 +78,7 @@ pub extern "C" fn create_instance(
         }
     };
     let fd = FD.fetch_add(1, Ordering::SeqCst);
-    println!("Created instance {}", fd);
     INSTANCES.write().unwrap().insert(fd, model);
-
     FFICreateInstanceResponse {
         fd: fd,
         error_message: convert_string_to_cstring(""),
@@ -83,7 +97,6 @@ pub extern "C" fn speak(fd: i32, text: *const c_char) -> FFISpeakResponse {
             };
         }
     };
-    println!("Instance found");
     match instance.speak(c_char_to_str(text)) {
         Ok(_) => FFISpeakResponse {
             error_message: convert_string_to_cstring(""),
