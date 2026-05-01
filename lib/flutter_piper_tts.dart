@@ -1,13 +1,13 @@
 import 'dart:ffi';
 
 import 'package:ffi/ffi.dart';
-import 'package:flutter_piper_tts/ffi.g.dart' as g;
+import 'package:flutter_piper_tts/src/ffi.g.dart' as g;
 import 'package:path_provider/path_provider.dart';
 
 class PiperTTS {
-  final int fd;
+  final int _fd;
 
-  PiperTTS._(this.fd);
+  PiperTTS._(this._fd);
 
   static Future<void> init({String? dataDir}) async {
     final dataDirPointer =
@@ -47,7 +47,7 @@ class PiperTTS {
   void speak(String text) {
     final textPointer = text.toNativeUtf8();
     try {
-      final result = g.speak(fd, textPointer.cast<Char>());
+      final result = g.speak(_fd, textPointer.cast<Char>());
       final g.FFISpeakResponse(:error_message) = result;
       if (error_message.isNotEmpty) {
         throw Exception(error_message.toDartString());
@@ -58,7 +58,7 @@ class PiperTTS {
   }
 
   void pause([dynamic _]) {
-    final result = g.pause(fd);
+    final result = g.pause(_fd);
     final g.FFIPauseResponse(:error_message) = result;
     if (error_message.isNotEmpty) {
       throw Exception(error_message.toDartString());
@@ -66,7 +66,7 @@ class PiperTTS {
   }
 
   void resume([dynamic _]) {
-    final result = g.resume(fd);
+    final result = g.resume(_fd);
     final g.FFIResumeResponse(:error_message) = result;
     if (error_message.isNotEmpty) {
       throw Exception(error_message.toDartString());
@@ -74,7 +74,7 @@ class PiperTTS {
   }
 
   void stop([dynamic _]) {
-    final result = g.stop(fd);
+    final result = g.stop(_fd);
     final g.FFIStopResponse(:error_message) = result;
     if (error_message.isNotEmpty) {
       throw Exception(error_message.toDartString());
