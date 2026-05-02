@@ -13,7 +13,7 @@ resolution: workspace
 dependencies:
   flutter:
     sdk: flutter
-  flutter_piper_tts: ^0.0.1
+  flutter_piper_tts: ^0.1.0
   cupertino_icons: ^1.0.8
   path: ^1.9.1
   path_provider: ^2.1.5
