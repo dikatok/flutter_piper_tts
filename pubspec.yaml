@@ -7,4 +7,5 @@ workspace:
   - packages/dart_piper_tts
   - packages/flutter_piper_tts
   - examples/flutter
+  - examples/cli
 melos:
