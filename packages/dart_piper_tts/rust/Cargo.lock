@@ -274,6 +274,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0a5c400df2834b80a4c3327b3aad3a4c4cd4de0629063962b03235697506a28"
 
 [[package]]
+name = "dart_piper_tts_native"
+version = "0.0.0"
+dependencies = [
+ "android_logger",
+ "cbindgen",
+ "env_logger",
+ "espeak-ng",
+ "log",
+ "ndarray",
+ "ort",
+ "oslog",
+ "regex",
+ "ringbuf",
+ "serde",
+ "serde_json",
+ "tinyaudio",
+]
+
+[[package]]
 name = "dashmap"
 version = "5.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -393,25 +412,6 @@ name = "find-msvc-tools"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
-
-[[package]]
-name = "flutter_piper_tts_native"
-version = "0.0.0"
-dependencies = [
- "android_logger",
- "cbindgen",
- "env_logger",
- "espeak-ng",
- "log",
- "ndarray",
- "ort",
- "oslog",
- "regex",
- "ringbuf",
- "serde",
- "serde_json",
- "tinyaudio",
-]
 
 [[package]]
 name = "foldhash"

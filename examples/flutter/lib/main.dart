@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_piper_tts/flutter_piper_tts.dart';
@@ -11,8 +10,11 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final (modelPath, configPath) = await copyModelFromAssets();
   await PiperTTS.init();
-  final tts = PiperTTS.create(modelPath, configPath);
-  compute(tts.speak, "Hello World!");
+  final tts = await PiperTTS.create(
+    modelPath: modelPath,
+    configPath: configPath,
+  );
+  tts.speak('Hello world!');
   runApp(MyApp(tts: tts));
 }
 
@@ -54,25 +56,25 @@ class _MyAppState extends State<MyApp> {
                 ),
                 TextButton(
                   onPressed: () {
-                    compute(widget.tts.speak, controller.text);
+                    widget.tts.speak(controller.text);
                   },
                   child: const Text("speak", style: textStyle),
                 ),
                 TextButton(
                   onPressed: () {
-                    compute(widget.tts.pause, null);
+                    widget.tts.pause();
                   },
                   child: const Text("pause", style: textStyle),
                 ),
                 TextButton(
                   onPressed: () {
-                    compute(widget.tts.resume, null);
+                    widget.tts.resume();
                   },
                   child: const Text("resume", style: textStyle),
                 ),
                 TextButton(
                   onPressed: () {
-                    compute(widget.tts.stop, null);
+                    widget.tts.stop();
                   },
                   child: const Text("stop", style: textStyle),
                 ),

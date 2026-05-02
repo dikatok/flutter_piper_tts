@@ -1,22 +1,10 @@
-name: flutter_piper_tts
-description: "TTS in Dart using Piper TTS models + audio player in one package."
-version: 0.1.0
-repository: https://github.com/dikatok/flutter_piper_tts
-topics: [ tts, audio, flutter ]
-
+name: piper_tts
 environment:
-  sdk: ^3.11.5
-
-dependencies:
-  android_libcpp_shared: ^0.1.1
-  code_assets: ^1.0.0
-  ffi: ^2.2.0
-  hooks: ^1.0.3
-  native_toolchain_rust: ^1.0.4
-  path: ^1.9.1
-  path_provider: ^2.1.5
-
+  sdk: ">=3.11.5 <4.0.0"
 dev_dependencies:
-  ffigen: ^20.1.1
-  flutter_lints: ^6.0.0
-  test: ^1.28.0
+  melos: ^7.5.1
+workspace:
+  - packages/dart_piper_tts
+  - packages/flutter_piper_tts
+  - examples/flutter
+melos:

@@ -1,5 +1,5 @@
 [package]
-name = "flutter_piper_tts_native"
+name = "dart_piper_tts_native"
 version = "0.0.0"
 edition = "2024"
 publish = false
