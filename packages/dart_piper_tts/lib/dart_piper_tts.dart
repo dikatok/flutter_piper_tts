@@ -8,7 +8,7 @@ class PiperTTS {
 
   PiperTTS._(this._fd);
 
-  static Future<void> init(({String dataDir}) args) async {
+  static void init(({String dataDir}) args) {
     final dataDirPointer = args.dataDir.toNativeUtf8();
     try {
       final result = g.init(dataDirPointer.cast<Char>());
