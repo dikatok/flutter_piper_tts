@@ -1,0 +1,3 @@
+[workspace]
+members = ["packages/dart_piper_tts/rust"]
+resolver = "3"
