@@ -10,7 +10,7 @@ use std::{
 };
 
 use espeak_ng::install_bundled_data;
-use log::debug;
+use log::{debug, warn};
 
 use crate::{audio::AudioPlayer, helpers::c_char_to_str, instance::Instance, logging::init_logger};
 
@@ -36,23 +36,37 @@ pub extern "C" fn init(data_dir: *const c_char) -> FFIInitResponse {
     init_logger();
 
     let mut global_data_dir = ESPEAK_DATA_DIR.write().unwrap();
-    let binding = Path::new(c_char_to_str(data_dir)).join("espeak-ng-data");
-    let path = binding.as_path();
-    *global_data_dir = path.to_str().unwrap().to_string();
-    debug!("espeak data dir: {}", path.display());
+    match global_data_dir.as_str() {
+        "" => {
+            let binding = Path::new(c_char_to_str(data_dir)).join("espeak-ng-data");
+            let path = binding.as_path();
+            *global_data_dir = path.to_str().unwrap().to_string();
+            debug!("espeak data dir: {}", path.display());
 
-    match install_bundled_data(path) {
-        Ok(_) => (),
-        Err(err) => {
-            return FFIInitResponse {
-                error_message: convert_string_to_cstring(&err.to_string()),
+            match install_bundled_data(path) {
+                Ok(_) => (),
+                Err(err) => {
+                    return FFIInitResponse {
+                        error_message: convert_string_to_cstring(&err.to_string()),
+                    };
+                }
             };
+            debug!("espeak bundled data installed");
         }
-    };
-    debug!("espeak bundled data installed");
+        _ => {
+            warn!("espeak data already installed, skipping");
+        }
+    }
 
-    AUDIO_PLAYER.get_or_init(|| Mutex::new(AudioPlayer::default()));
-    debug!("audio player initialized");
+    match AUDIO_PLAYER.get() {
+        None => {
+            AUDIO_PLAYER.get_or_init(|| Mutex::new(AudioPlayer::default()));
+            debug!("audio player initialized");
+        }
+        Some(_) => {
+            warn!("audio player already initialized, skipping");
+        }
+    }
 
     FFIInitResponse {
         error_message: convert_string_to_cstring(""),
@@ -91,16 +105,13 @@ pub extern "C" fn speak(fd: i32, text: *const c_char) -> FFISpeakResponse {
         FFISpeakResponse {
             error_message: convert_string_to_cstring("Instance not found"),
         },
-        |instance| {
-            // your logic here
-            match instance.speak(c_char_to_str(text)) {
-                Ok(_) => FFISpeakResponse {
-                    error_message: convert_string_to_cstring(""),
-                },
-                Err(err) => FFISpeakResponse {
-                    error_message: convert_string_to_cstring(&err.message),
-                },
-            }
+        |instance| match instance.speak(c_char_to_str(text)) {
+            Ok(_) => FFISpeakResponse {
+                error_message: convert_string_to_cstring(""),
+            },
+            Err(err) => FFISpeakResponse {
+                error_message: convert_string_to_cstring(&err.message),
+            },
         },
     )
 }
