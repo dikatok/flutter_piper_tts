@@ -40,7 +40,6 @@ pub extern "C" fn init(data_dir: *const c_char) -> FFIInitResponse {
         "" => {
             let binding = Path::new(c_char_to_str(data_dir)).join("espeak-ng-data");
             let path = binding.as_path();
-            *global_data_dir = path.to_str().unwrap().to_string();
             debug!("espeak data dir: {}", path.display());
 
             match install_bundled_data(path) {
@@ -51,6 +50,7 @@ pub extern "C" fn init(data_dir: *const c_char) -> FFIInitResponse {
                     };
                 }
             };
+            *global_data_dir = path.to_str().unwrap().to_string();
             debug!("espeak bundled data installed");
         }
         _ => {
