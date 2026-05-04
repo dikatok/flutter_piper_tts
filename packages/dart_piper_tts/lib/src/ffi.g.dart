@@ -7,8 +7,17 @@ library;
 
 import 'dart:ffi' as ffi;
 
-@ffi.Native<FFIInitResponse Function(ffi.Pointer<ffi.Char>)>()
-external FFIInitResponse init(ffi.Pointer<ffi.Char> data_dir);
+@ffi.Native<
+  FFIInitResponse Function(
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.NativeFunction<ffi.Void Function(ffi.Int64 port)>>,
+  )
+>()
+external FFIInitResponse init(
+  ffi.Pointer<ffi.Char> data_dir,
+  ffi.Pointer<ffi.NativeFunction<ffi.Void Function(ffi.Int64 port)>>
+  completion_cb,
+);
 
 @ffi.Native<
   FFICreateInstanceResponse Function(
@@ -21,8 +30,10 @@ external FFICreateInstanceResponse create_instance(
   ffi.Pointer<ffi.Char> config_path,
 );
 
-@ffi.Native<FFISpeakResponse Function(ffi.Int32, ffi.Pointer<ffi.Char>)>()
-external FFISpeakResponse speak(int fd, ffi.Pointer<ffi.Char> text);
+@ffi.Native<
+  FFISpeakResponse Function(ffi.Int32, ffi.Pointer<ffi.Char>, ffi.Int64)
+>()
+external FFISpeakResponse speak(int fd, ffi.Pointer<ffi.Char> text, int port);
 
 @ffi.Native<FFIPauseResponse Function(ffi.Int32)>()
 external FFIPauseResponse pause(int fd);

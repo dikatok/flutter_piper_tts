@@ -1,13 +1,17 @@
 use std::sync::{
-    Arc,
+    Arc, Mutex,
     atomic::{AtomicBool, AtomicU8, Ordering},
+    mpsc,
 };
 
+use log::debug;
 use ringbuf::{
     HeapProd, HeapRb,
     traits::{Consumer, Producer, Split},
 };
 use tinyaudio::{OutputDevice, OutputDeviceParameters, run_output_device};
+
+use crate::COMPLETION_CB;
 
 const SAMPLE_RATE: u32 = 22050;
 
@@ -37,10 +41,15 @@ impl AudioPlayerConfig {
     }
 }
 
+#[derive(Copy, Clone)]
+enum AudioSlot {
+    Sample(f32),
+    Complete(i64), // dart port, -1 = no notification needed
+}
+
 pub(crate) struct AudioPlayer {
-    ring_buffer: HeapProd<f32>,
+    ring_buffer: HeapProd<AudioSlot>,
     command: Arc<AtomicU8>,
-    _device: OutputDevice, // keep this alive
     drain: Arc<AtomicBool>,
 }
 
@@ -52,7 +61,7 @@ impl Default for AudioPlayer {
 
 impl AudioPlayer {
     pub(crate) fn new(config: AudioPlayerConfig) -> Self {
-        let ring_buffer = HeapRb::<f32>::new(config.ring_buffer_capacity());
+        let ring_buffer = HeapRb::<AudioSlot>::new(config.ring_buffer_capacity());
         let (producer, mut consumer) = ring_buffer.split();
 
         let command = Arc::new(AtomicU8::new(AudioPlayerCommand::Play as u8));
@@ -61,12 +70,14 @@ impl AudioPlayer {
         let command_cb = Arc::clone(&command);
         let drain_cb = Arc::clone(&drain);
 
+        let (completion_tx, completion_rx) = mpsc::channel::<i64>();
+
         // Fractional position accumulator lives inside the callback closure
         let mut frac: f32 = 0.0;
         // Small local buffer for speed < 1.0 (we need to repeat samples)
         let mut held_sample: f32 = 0.0;
 
-        let _device = run_output_device(
+        let device = run_output_device(
             OutputDeviceParameters {
                 channels_count: 1,
                 sample_rate: config.sample_rate as usize,
@@ -78,7 +89,14 @@ impl AudioPlayer {
                 for out in data.iter_mut() {
                     if cmd != AudioPlayerCommand::Play as u8 {
                         if drain_cb.load(Ordering::Relaxed) {
-                            while consumer.try_pop().is_some() {}
+                            while let Some(s) = consumer.try_pop() {
+                                match s {
+                                    AudioSlot::Sample(s) => *out = s,
+                                    AudioSlot::Complete(port) => {
+                                        let _ = completion_tx.send(port);
+                                    }
+                                }
+                            }
                             drain_cb.store(false, Ordering::Relaxed);
                         }
                         *out = 0.0;
@@ -90,7 +108,13 @@ impl AudioPlayer {
                     // Pop as many samples as frac has accumulated
                     while frac >= 1.0 {
                         if let Some(s) = consumer.try_pop() {
-                            held_sample = s;
+                            match s {
+                                AudioSlot::Sample(s) => held_sample = s,
+                                AudioSlot::Complete(port) => {
+                                    debug!("completing speech on port: {}", port);
+                                    let _ = completion_tx.send(port);
+                                }
+                            }
                         }
                         // If ring is empty: output silence (underrun)
                         frac -= 1.0;
@@ -102,12 +126,26 @@ impl AudioPlayer {
         )
         .expect("failed to open audio device");
 
-        println!("Audio device opened");
+        std::thread::spawn(move || {
+            let _keep_alive = device;
+
+            while let Ok(port) = completion_rx.recv() {
+                if port != -1 {
+                    debug!("calling completion callback on port: {}", port);
+                    if let Some(cb) = *COMPLETION_CB
+                        .get_or_init(|| Mutex::new(None))
+                        .lock()
+                        .unwrap()
+                    {
+                        unsafe { cb(port) };
+                    }
+                }
+            }
+        });
 
         Self {
             ring_buffer: producer,
             command,
-            _device,
             drain,
         }
     }
@@ -115,13 +153,32 @@ impl AudioPlayer {
     pub fn play(&mut self, samples: &[f32]) {
         self.command
             .store(AudioPlayerCommand::Play as u8, Ordering::Relaxed);
+
         let mut remaining = samples;
+
         while !remaining.is_empty() {
-            let pushed = self.ring_buffer.push_slice(remaining);
+            let slots: Vec<AudioSlot> = remaining.iter().map(|&s| AudioSlot::Sample(s)).collect();
+
+            let pushed = self.ring_buffer.push_slice(&slots);
+
             remaining = &remaining[pushed..];
+
             if !remaining.is_empty() {
                 std::thread::yield_now();
             }
+        }
+    }
+
+    pub fn mark_end_of_speech(&mut self, dart_port: i64) {
+        loop {
+            if self
+                .ring_buffer
+                .try_push(AudioSlot::Complete(dart_port))
+                .is_ok()
+            {
+                break;
+            }
+            std::thread::yield_now();
         }
     }
 

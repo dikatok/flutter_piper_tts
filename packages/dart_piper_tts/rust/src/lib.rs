@@ -4,8 +4,8 @@ use std::{
     os::raw::c_char,
     path::Path,
     sync::{
-        LazyLock, Mutex, OnceLock, RwLock,
-        atomic::{AtomicI32, Ordering},
+        Arc, LazyLock, Mutex, OnceLock, RwLock,
+        atomic::{AtomicBool, AtomicI32, Ordering},
     },
 };
 
@@ -31,8 +31,15 @@ static ESPEAK_DATA_DIR: LazyLock<RwLock<String>> = LazyLock::new(|| RwLock::new(
 
 static AUDIO_PLAYER: OnceLock<Mutex<AudioPlayer>> = OnceLock::new();
 
+pub type DartPort = i64;
+pub type CompletionCallback = unsafe extern "C" fn(port: DartPort);
+static COMPLETION_CB: OnceLock<Mutex<Option<CompletionCallback>>> = OnceLock::new();
+
 #[unsafe(no_mangle)]
-pub extern "C" fn init(data_dir: *const c_char) -> FFIInitResponse {
+pub extern "C" fn init(
+    data_dir: *const c_char,
+    completion_cb: CompletionCallback,
+) -> FFIInitResponse {
     init_logger();
 
     let mut global_data_dir = ESPEAK_DATA_DIR.write().unwrap();
@@ -58,15 +65,12 @@ pub extern "C" fn init(data_dir: *const c_char) -> FFIInitResponse {
         }
     }
 
-    match AUDIO_PLAYER.get() {
-        None => {
-            AUDIO_PLAYER.get_or_init(|| Mutex::new(AudioPlayer::default()));
-            debug!("audio player initialized");
-        }
-        Some(_) => {
-            warn!("audio player already initialized, skipping");
-        }
-    }
+    *COMPLETION_CB
+        .get_or_init(|| Mutex::new(None))
+        .lock()
+        .unwrap() = Some(completion_cb);
+
+    AUDIO_PLAYER.get_or_init(|| Mutex::new(AudioPlayer::default()));
 
     FFIInitResponse {
         error_message: convert_string_to_cstring(""),
@@ -99,13 +103,13 @@ pub extern "C" fn create_instance(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn speak(fd: i32, text: *const c_char) -> FFISpeakResponse {
+pub extern "C" fn speak(fd: i32, text: *const c_char, port: DartPort) -> FFISpeakResponse {
     with_instance_mut(
         fd,
         FFISpeakResponse {
             error_message: convert_string_to_cstring("Instance not found"),
         },
-        |instance| match instance.speak(c_char_to_str(text)) {
+        |instance| match instance.speak(c_char_to_str(text), port.clamp(-1, i64::MAX)) {
             Ok(_) => FFISpeakResponse {
                 error_message: convert_string_to_cstring(""),
             },

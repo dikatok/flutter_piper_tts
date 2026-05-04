@@ -55,8 +55,8 @@ class _MyAppState extends State<MyApp> {
                   controller: controller,
                 ),
                 TextButton(
-                  onPressed: () {
-                    widget.tts.speak(controller.text);
+                  onPressed: () async {
+                    await widget.tts.speak(controller.text);
                   },
                   child: const Text("speak", style: textStyle),
                 ),

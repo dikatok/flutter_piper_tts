@@ -1,5 +1,4 @@
 import "package:dart_piper_tts/dart_piper_tts.dart" as piper_dart;
-import "package:flutter/foundation.dart";
 import "package:path_provider/path_provider.dart";
 
 class PiperTTS {
@@ -7,28 +6,30 @@ class PiperTTS {
 
   PiperTTS._(this._tts);
 
-  static Future<void> init({String? dataDir}) async => compute(
-    piper_dart.PiperTTS.init,
-    (dataDir: dataDir ?? (await getApplicationSupportDirectory()).path),
-  );
+  static Future<void> init({String? dataDir}) async {
+    piper_dart.PiperTTS.init((
+      dataDir: dataDir ?? (await getApplicationDocumentsDirectory()).path,
+    ));
+  }
 
   static Future<PiperTTS> create({
     required String modelPath,
     required String configPath,
   }) async {
     return PiperTTS._(
-      await compute(piper_dart.PiperTTS.create, (
-        modelPath: modelPath,
+      piper_dart.PiperTTS.create((
         configPath: configPath,
+        modelPath: modelPath,
       )),
     );
   }
 
-  void speak(String text) => compute(_tts.speak, text);
+  Future<void> speak(String text, {bool waitForCompletion = true}) =>
+      _tts.speak(text, waitForCompletion: waitForCompletion);
 
-  void pause() => compute(_tts.pause, null);
+  void pause() => _tts.pause();
 
-  void resume() => compute(_tts.resume, null);
+  void resume() => _tts.resume();
 
-  void stop() => compute(_tts.stop, null);
+  void stop() => _tts.stop();
 }

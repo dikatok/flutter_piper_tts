@@ -1,8 +1,12 @@
-use std::{fs::File, path::Path};
+use std::{
+    fs::File,
+    path::Path,
+    sync::mpsc::{self, Sender},
+};
 
 use espeak_ng::Translator;
-use log::debug;
-use ort::session::{Session, builder::SessionBuilder};
+use log::{debug, error};
+use ort::session::builder::SessionBuilder;
 
 use crate::{
     AUDIO_PLAYER, ESPEAK_DATA_DIR,
@@ -11,21 +15,29 @@ use crate::{
     inference::infer,
 };
 
-pub(crate) struct Instance {
-    config: ModelConfig,
-    ort_session: Session,
-    espeak_translator: Translator,
+enum SpeechTask {
+    Play { text: String, dart_port: i64 },
+    Resume,
+    Pause,
+    Stop,
 }
+
+pub(crate) struct Instance {
+    speech_tasks: Sender<SpeechTask>,
+}
+
+unsafe impl Send for Instance {}
+unsafe impl Sync for Instance {}
 
 impl Instance {
     pub(crate) fn new(model_path: &Path, config_path: &Path) -> TTSResult<Self> {
-        debug!("creating new instance");
-
         let config_file = File::open(config_path)?;
         let config: ModelConfig = serde_json::from_reader(config_file)?;
-        debug!("config fetched from {}", config_path.display());
 
-        let ort_session = SessionBuilder::new()?.commit_from_file(model_path)?;
+        debug!("config loaded from {}", config_path.display());
+
+        let mut ort_session = SessionBuilder::new()?.commit_from_file(model_path)?;
+
         debug!("ort session created from {}", model_path.display());
 
         let lang = config
@@ -34,67 +46,124 @@ impl Instance {
             .clone()
             .or_else(|| Some("en".to_string()))
             .unwrap();
-        debug!("espeak language: {}", lang);
-        let espeak_translator = match Translator::new(
+
+        let espeak_translator = Translator::new(
             lang.as_str(),
             Some(Path::new(ESPEAK_DATA_DIR.read().unwrap().as_str())),
-        ) {
-            Ok(translator) => translator,
-            Err(err) => {
-                return Err(TTSError {
-                    message: format!("Failed to create translator: {}", err),
-                });
-            }
-        };
-        debug!("espeak translator created");
+        )
+        .map_err(|e| TTSError {
+            message: format!("failed to create translator: {}", e),
+        })?;
 
-        Ok(Instance {
-            config,
-            ort_session,
-            espeak_translator,
-        })
+        debug!("espeak translator created, lang: {}", lang);
+
+        let (tx, rx) = mpsc::channel::<SpeechTask>();
+
+        std::thread::spawn(move || {
+            while let Ok(task) = rx.recv() {
+                match task {
+                    SpeechTask::Play { text, dart_port } => {
+                        debug!("processing speech task: {}", text);
+
+                        let clauses = match espeak_translator.read_clauses(&text) {
+                            Ok(c) => c,
+                            Err(e) => {
+                                error!("failed to read clauses: {}", e);
+                                continue;
+                            }
+                        };
+
+                        for clause in clauses {
+                            debug!("clause: {}", clause.text);
+
+                            let phonemes = match espeak_translator.text_to_ipa(&clause.text) {
+                                Ok(p) => p,
+                                Err(e) => {
+                                    error!("failed to phonemize: {}", e);
+                                    continue;
+                                }
+                            };
+
+                            debug!("phonemes: {}", phonemes);
+
+                            let samples = match infer(&mut ort_session, &config, &phonemes) {
+                                Ok(s) => s,
+                                Err(e) => {
+                                    error!("inference failed: {}", e);
+                                    continue;
+                                }
+                            };
+
+                            AUDIO_PLAYER
+                                .get()
+                                .expect("audio player not initialized")
+                                .lock()
+                                .unwrap()
+                                .play(&samples);
+                        }
+
+                        AUDIO_PLAYER
+                            .get()
+                            .expect("audio player not initialized")
+                            .lock()
+                            .unwrap()
+                            .mark_end_of_speech(dart_port);
+                    }
+                    SpeechTask::Resume => AUDIO_PLAYER
+                        .get()
+                        .expect("audio player not initialized")
+                        .lock()
+                        .unwrap()
+                        .resume(),
+                    SpeechTask::Pause => AUDIO_PLAYER
+                        .get()
+                        .expect("audio player not initialized")
+                        .lock()
+                        .unwrap()
+                        .pause(),
+                    SpeechTask::Stop => AUDIO_PLAYER
+                        .get()
+                        .expect("audio player not initialized")
+                        .lock()
+                        .unwrap()
+                        .stop(),
+                }
+            }
+
+            debug!("speech task worker exiting");
+        });
+
+        Ok(Instance { speech_tasks: tx })
     }
 
-    pub(crate) fn speak(&mut self, text: &str) -> TTSResult<()> {
-        debug!("speak");
-
-        let clauses = self
-            .espeak_translator
-            .read_clauses(text)
+    pub(crate) fn speak(&mut self, text: &str, dart_port: i64) -> TTSResult<()> {
+        self.speech_tasks
+            .send(SpeechTask::Play {
+                text: text.to_string(),
+                dart_port,
+            })
             .map_err(|err| TTSError {
-                message: format!("Failed to read clauses: {}", err),
-            });
-
-        let mut player = AUDIO_PLAYER.get().expect("").lock().unwrap();
-
-        for clause in clauses? {
-            debug!("clause: {}", clause.text);
-            let phonemes = self
-                .espeak_translator
-                .text_to_ipa(&clause.text)
-                .map_err(|err| TTSError {
-                    message: format!("Failed to convert text to phonemes: {}", err),
-                })?;
-            debug!("phonemes: {}", phonemes);
-            let samples = infer(&mut self.ort_session, &self.config, &phonemes.as_str())?;
-            player.play(&samples);
-        }
+                message: format!("Failed to send speech task: {}", err),
+            })?;
 
         Ok(())
     }
 
-    pub(crate) fn pause(&mut self) {
-        debug!("pause");
-        AUDIO_PLAYER.get().expect("").lock().unwrap().pause();
+    pub(crate) fn pause(&self) {
+        self.speech_tasks
+            .send(SpeechTask::Pause)
+            .expect("Failed to send speech task");
     }
 
-    pub(crate) fn resume(&mut self) {
-        debug!("resume");
-        AUDIO_PLAYER.get().expect("").lock().unwrap().resume();
+    pub(crate) fn resume(&self) {
+        self.speech_tasks
+            .send(SpeechTask::Resume)
+            .expect("Failed to send speech task");
     }
 
-    pub(crate) fn stop(&mut self) {
-        debug!("stop");
-        AUDIO_PLAYER.get().expect("").lock().unwrap().stop();
+    pub(crate) fn stop(&self) {
+        self.speech_tasks
+            .send(SpeechTask::Stop)
+            .expect("Failed to send speech task");
     }
 }

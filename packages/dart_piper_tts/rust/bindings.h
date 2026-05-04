@@ -13,6 +13,10 @@ typedef struct FFIInitResponse {
   char *error_message;
 } FFIInitResponse;
 
+typedef int64_t DartPort;
+
+typedef void (*CompletionCallback)(DartPort port);
+
 typedef struct FFICreateInstanceResponse {
   int32_t fd;
   char *error_message;
@@ -34,11 +38,11 @@ typedef struct FFIStopResponse {
   char *error_message;
 } FFIStopResponse;
 
-struct FFIInitResponse init(const char *data_dir);
+struct FFIInitResponse init(const char *data_dir, CompletionCallback completion_cb);
 
 struct FFICreateInstanceResponse create_instance(const char *model_path, const char *config_path);
 
-struct FFISpeakResponse speak(int32_t fd, const char *text);
+struct FFISpeakResponse speak(int32_t fd, const char *text, DartPort port);
 
 struct FFIPauseResponse pause(int32_t fd);
 

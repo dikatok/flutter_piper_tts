@@ -1,17 +1,43 @@
+import 'dart:async';
 import 'dart:ffi';
+import 'dart:isolate';
 
 import 'package:dart_piper_tts/src/ffi.g.dart' as g;
 import 'package:ffi/ffi.dart';
 
 class PiperTTS {
+  static final Map<int, Completer<void>> _completers = {};
+
+  static RawReceivePort? _receivePort;
+
+  static NativeCallable<Void Function(Int64)>? _nativeCompletionCallback;
+
+  static int _nextId = 0;
+
   final int _fd;
 
   PiperTTS._(this._fd);
 
+  static void _onNativeComplete(int port) {
+    _receivePort!.sendPort.send(port);
+  }
+
   static void init(({String dataDir}) args) {
     final dataDirPointer = args.dataDir.toNativeUtf8();
+
+    _receivePort ??= RawReceivePort((dynamic port) {
+      _completers.remove(port as int)?.complete();
+    });
+
+    _nativeCompletionCallback ??= NativeCallable<Void Function(Int64)>.listener(
+      _onNativeComplete,
+    );
+
     try {
-      final result = g.init(dataDirPointer.cast<Char>());
+      final result = g.init(
+        dataDirPointer.cast<Char>(),
+        _nativeCompletionCallback!.nativeFunction,
+      );
       final g.FFIInitResponse(:error_message) = result;
       if (error_message.isNotEmpty) {
         throw Exception(error_message.toDartString());
@@ -41,10 +67,20 @@ class PiperTTS {
     }
   }
 
-  void speak(String text) {
+  static void dispose() {
+    _nativeCompletionCallback?.close();
+    _nativeCompletionCallback = null;
+    _receivePort?.close();
+    _receivePort = null;
+  }
+
+  Future<void> speak(String text, {bool waitForCompletion = true}) async {
     final textPointer = text.toNativeUtf8();
+    final id = _nextId++;
+    final completer = Completer<void>();
+    _completers[id] = completer;
     try {
-      final result = g.speak(_fd, textPointer.cast<Char>());
+      final result = g.speak(_fd, textPointer.cast<Char>(), id);
       final g.FFISpeakResponse(:error_message) = result;
       if (error_message.isNotEmpty) {
         throw Exception(error_message.toDartString());
@@ -52,6 +88,7 @@ class PiperTTS {
     } finally {
       calloc.free(textPointer);
     }
+    if (waitForCompletion) return completer.future;
   }
 
   void pause([dynamic _]) {
