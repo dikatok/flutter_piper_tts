@@ -9,7 +9,7 @@ use ringbuf::{
     HeapProd, HeapRb,
     traits::{Consumer, Producer, Split},
 };
-use tinyaudio::{OutputDevice, OutputDeviceParameters, run_output_device};
+use tinyaudio::{OutputDeviceParameters, run_output_device};
 
 use crate::COMPLETION_CB;
 

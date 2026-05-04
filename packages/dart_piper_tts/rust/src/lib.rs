@@ -4,8 +4,8 @@ use std::{
     os::raw::c_char,
     path::Path,
     sync::{
-        Arc, LazyLock, Mutex, OnceLock, RwLock,
-        atomic::{AtomicBool, AtomicI32, Ordering},
+        LazyLock, Mutex, OnceLock, RwLock,
+        atomic::{AtomicI32, Ordering},
     },
 };
 
