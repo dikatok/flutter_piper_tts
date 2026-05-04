@@ -9,3 +9,5 @@ workspace:
   - examples/flutter
   - examples/cli
 melos:
+  ignore:
+    - examples/**
