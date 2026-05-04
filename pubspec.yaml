@@ -6,8 +6,9 @@ dev_dependencies:
 workspace:
   - packages/dart_piper_tts
   - packages/flutter_piper_tts
-  - examples/flutter
-  - examples/cli
+  - packages/dart_piper_tts/example
+  - packages/flutter_piper_tts/example
 melos:
   ignore:
-    - examples/**
+    - packages/dart_piper_tts/example
+    - packages/flutter_piper_tts/example
