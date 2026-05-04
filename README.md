@@ -1,8 +1,10 @@
 # flutter_piper_tts
 
-TTS in Dart using Piper TTS models + audio player in one package.
+TTS in Dart (or Flutter) using Piper TTS models + audio player in one package.
 
 ## Usage
+
+`Disclaimer: examples below are using the Flutter package`
 
 - Download Piper TTS model of your choice, make sure to also prepare the `*.onnx.json` file
 - Make them available to the device file system, eg. copying from your asset bundle to device application support directory
@@ -37,11 +39,15 @@ TTS in Dart using Piper TTS models + audio player in one package.
 - Initialize the package
 ```dart
   await PiperTTS.init();
-  final tts = PiperTTS.create(modelPath, configPath);
+  final tts = await PiperTTS.create(modelPath, configPath);
 ```
-- Make it speak, wrap it in `compute` if used in Flutter context
+- Call `speak`
 ```dart
-  compute(tts.speak, "Hello World!");
+  await tts.speak("Hello world");
+  tts.pause();
+  tts.resume();
+  await tts.speak("Bye", waitForCompletion: false)
+  tts.stop();
 ```
 
 ## Supported platforms
@@ -49,7 +55,6 @@ TTS in Dart using Piper TTS models + audio player in one package.
 - iOS
 - MacOS
 - Windows and Linux (not tested)
-- Web (will see in the future, whether to use opfs or load the model from uri/url)
 
 ## TODO
 - Revisit phonemization
