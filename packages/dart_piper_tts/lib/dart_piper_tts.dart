@@ -67,13 +67,6 @@ class PiperTTS {
     }
   }
 
-  static void dispose() {
-    _nativeCompletionCallback?.close();
-    _nativeCompletionCallback = null;
-    _receivePort?.close();
-    _receivePort = null;
-  }
-
   Future<void> speak(String text, {bool waitForCompletion = true}) async {
     final textPointer = text.toNativeUtf8();
     final id = _nextId++;
@@ -110,6 +103,14 @@ class PiperTTS {
   void stop([dynamic _]) {
     final result = g.stop(_fd);
     final g.FFIStopResponse(:error_message) = result;
+    if (error_message.isNotEmpty) {
+      throw Exception(error_message.toDartString());
+    }
+  }
+
+  void dispose() {
+    final result = g.dispose(_fd);
+    final g.FFIDisposeResponse(:error_message) = result;
     if (error_message.isNotEmpty) {
       throw Exception(error_message.toDartString());
     }

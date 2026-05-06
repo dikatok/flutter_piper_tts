@@ -32,4 +32,6 @@ class PiperTTS {
   void resume() => _tts.resume();
 
   void stop() => _tts.stop();
+
+  void dispose() => _tts.dispose();
 }

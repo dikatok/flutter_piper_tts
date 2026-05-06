@@ -38,6 +38,7 @@ ffigen:
       - pause
       - resume
       - stop
+      - dispose
   unnamed-enums:
     exclude:
       - ".*"

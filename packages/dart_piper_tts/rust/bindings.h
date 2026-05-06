@@ -38,6 +38,10 @@ typedef struct FFIStopResponse {
   char *error_message;
 } FFIStopResponse;
 
+typedef struct FFIDisposeResponse {
+  char *error_message;
+} FFIDisposeResponse;
+
 struct FFIInitResponse init(const char *data_dir, CompletionCallback completion_cb);
 
 struct FFICreateInstanceResponse create_instance(const char *model_path, const char *config_path);
@@ -49,3 +53,5 @@ struct FFIPauseResponse pause(int32_t fd);
 struct FFIResumeResponse resume(int32_t fd);
 
 struct FFIStopResponse stop(int32_t fd);
+
+struct FFIDisposeResponse dispose(int32_t fd);

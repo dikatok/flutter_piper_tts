@@ -78,6 +78,12 @@ class _MyAppState extends State<MyApp> {
                   },
                   child: const Text("stop", style: textStyle),
                 ),
+                TextButton(
+                  onPressed: () {
+                    widget.tts.dispose();
+                  },
+                  child: const Text("dispose", style: textStyle),
+                ),
               ],
             ),
           ),
@@ -94,26 +100,24 @@ Future<(String, String)> copyModelFromAssets() async {
 
   final exists = await File(modelPath).exists();
 
-  if (!exists) {
-    final modelData = await rootBundle.load(
-      'assets/en_US-hfc_female-medium.onnx',
-    );
-    List<int> bytes = modelData.buffer.asUint8List(
-      modelData.offsetInBytes,
-      modelData.lengthInBytes,
-    );
+  final modelData = await rootBundle.load(
+    'assets/en_US-hfc_female-medium.onnx',
+  );
+  List<int> bytes = modelData.buffer.asUint8List(
+    modelData.offsetInBytes,
+    modelData.lengthInBytes,
+  );
 
-    await File(modelPath).writeAsBytes(bytes, flush: true);
+  await File(modelPath).writeAsBytes(bytes, flush: true);
 
-    final configData = await rootBundle.load(
-      'assets/en_US-hfc_female-medium.onnx.json',
-    );
-    bytes = configData.buffer.asUint8List(
-      configData.offsetInBytes,
-      configData.lengthInBytes,
-    );
-    await File(configPath).writeAsBytes(bytes, flush: true);
-  }
+  final configData = await rootBundle.load(
+    'assets/en_US-hfc_female-medium.onnx.json',
+  );
+  bytes = configData.buffer.asUint8List(
+    configData.offsetInBytes,
+    configData.lengthInBytes,
+  );
+  await File(configPath).writeAsBytes(bytes, flush: true);
 
   return (modelPath, configPath);
 }

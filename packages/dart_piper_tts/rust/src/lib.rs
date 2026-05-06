@@ -107,7 +107,7 @@ pub extern "C" fn speak(fd: i32, text: *const c_char, port: DartPort) -> FFISpea
     with_instance_mut(
         fd,
         FFISpeakResponse {
-            error_message: convert_string_to_cstring("Instance not found"),
+            error_message: convert_string_to_cstring("instance not initialized"),
         },
         |instance| match instance.speak(c_char_to_str(text), port.clamp(-1, i64::MAX)) {
             Ok(_) => FFISpeakResponse {
@@ -125,7 +125,7 @@ pub extern "C" fn pause(fd: i32) -> FFIPauseResponse {
     with_instance_mut(
         fd,
         FFIPauseResponse {
-            error_message: convert_string_to_cstring("Instance not found"),
+            error_message: convert_string_to_cstring("instance not initialized"),
         },
         |instance| {
             instance.pause();
@@ -141,7 +141,7 @@ pub extern "C" fn resume(fd: i32) -> FFIResumeResponse {
     with_instance_mut(
         fd,
         FFIResumeResponse {
-            error_message: convert_string_to_cstring("Instance not found"),
+            error_message: convert_string_to_cstring("instance not initialized"),
         },
         |instance| {
             instance.resume();
@@ -157,7 +157,7 @@ pub extern "C" fn stop(fd: i32) -> FFIStopResponse {
     with_instance_mut(
         fd,
         FFIStopResponse {
-            error_message: convert_string_to_cstring("Instance not found"),
+            error_message: convert_string_to_cstring("instance not initialized"),
         },
         |instance| {
             instance.stop();
@@ -166,6 +166,18 @@ pub extern "C" fn stop(fd: i32) -> FFIStopResponse {
             }
         },
     )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn dispose(fd: i32) -> FFIDisposeResponse {
+    match INSTANCES.write().unwrap().remove(&fd) {
+        Some(_) => FFIDisposeResponse {
+            error_message: convert_string_to_cstring(""),
+        },
+        None => FFIDisposeResponse {
+            error_message: convert_string_to_cstring("instance not initialized"),
+        },
+    }
 }
 
 fn with_instance_mut<T, F>(fd: i32, not_found: T, f: F) -> T
@@ -211,5 +223,10 @@ pub struct FFIResumeResponse {
 
 #[repr(C)]
 pub struct FFIStopResponse {
+    pub error_message: *mut c_char,
+}
+
+#[repr(C)]
+pub struct FFIDisposeResponse {
     pub error_message: *mut c_char,
 }

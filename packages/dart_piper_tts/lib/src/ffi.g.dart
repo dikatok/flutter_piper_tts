@@ -44,6 +44,9 @@ external FFIResumeResponse resume(int fd);
 @ffi.Native<FFIStopResponse Function(ffi.Int32)>()
 external FFIStopResponse stop(int fd);
 
+@ffi.Native<FFIDisposeResponse Function(ffi.Int32)>()
+external FFIDisposeResponse dispose(int fd);
+
 final class FFIInitResponse extends ffi.Struct {
   external ffi.Pointer<ffi.Char> error_message;
 }
@@ -68,5 +71,9 @@ final class FFIResumeResponse extends ffi.Struct {
 }
 
 final class FFIStopResponse extends ffi.Struct {
+  external ffi.Pointer<ffi.Char> error_message;
+}
+
+final class FFIDisposeResponse extends ffi.Struct {
   external ffi.Pointer<ffi.Char> error_message;
 }
