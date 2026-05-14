@@ -2,6 +2,14 @@
 
 TTS in Dart (or Flutter) using Piper TTS models + audio player in one package.
 
+All onnx models are run via https://crates.io/crates/ort.
+
+Built-in phonemizer is done via neural g2p ipa phonemizer model obtained from https://huggingface.co/OpenVoiceOS/g2p-mbyt5-12l-ipa-childes-espeak-onnx. This is done to avoid dealing with espeak GPL3 license and keep this package's MIT license. You can also provide your own ipa phonemes via `speakFromPhonemes` to bypass phonemes generation.
+
+Piper TTS models can be downloaded from https://huggingface.co/rhasspy/piper-voices/tree/main.
+
+Audio playback is done using https://crates.io/crates/tinyaudio.
+
 ## Usage
 
 `Disclaimer: examples below are using the Flutter package`
@@ -57,6 +65,5 @@ TTS in Dart (or Flutter) using Piper TTS models + audio player in one package.
 - Windows and Linux (not tested)
 
 ## TODO
-- Revisit phonemization
-- Allow custom phoneme mapping
+- Better support for subsentence separator like comma
 - Adjust speed (with change in pitch/not)
