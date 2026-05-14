@@ -22,6 +22,7 @@ pub struct InferenceConfig {
 #[derive(Deserialize)]
 pub struct LanguageConfig {
     pub family: Option<String>,
+    pub code: Option<String>,
 }
 
 #[derive(Deserialize)]

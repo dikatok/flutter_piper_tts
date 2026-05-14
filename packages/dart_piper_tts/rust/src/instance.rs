@@ -41,10 +41,13 @@ impl Instance {
 
         let lang = config
             .language
-            .family
+            .code
             .clone()
             .or_else(|| Some("en".to_string()))
-            .unwrap();
+            .unwrap()
+            .replace("_", "-");
+
+        debug!("language: {}", lang);
 
         let (tx, rx) = mpsc::channel::<SpeechTask>();
 
@@ -59,7 +62,7 @@ impl Instance {
                             .unwrap()
                             .lock()
                             .unwrap()
-                            .phonemize(&lang, &text, None)
+                            .phonemize(&lang, &text, None, None)
                         {
                             Ok(c) => c,
                             Err(e) => {

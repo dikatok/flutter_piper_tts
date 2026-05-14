@@ -11,12 +11,7 @@ pub(crate) fn encode(lang: &str, text: &str) -> Vec<i64> {
 }
 
 /// Decode ByT5 token IDs back to a UTF-8 string.
-/// Skips special tokens (0, 1, 2).
 pub(crate) fn decode(token_ids: &[i64]) -> String {
-    let bytes: Vec<u8> = token_ids
-        .iter()
-        .filter(|&&t| t >= 3)
-        .map(|&t| (t - 3) as u8)
-        .collect();
+    let bytes: Vec<u8> = token_ids.iter().map(|&t| (t - 3) as u8).collect();
     String::from_utf8_lossy(&bytes).into_owned()
 }
