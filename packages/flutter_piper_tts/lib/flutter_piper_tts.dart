@@ -16,7 +16,7 @@ class PiperTTS {
     final exists = await File(phonemizerPath).exists();
     if (!exists) {
       final data = await rootBundle.load(
-        'packages/flutter_piper_tts/assets/phonemizer/model.onnx',
+        'packages/flutter_piper_tts/assets/phonemizer/g2p-mbyt5-12l-ipa-childes-espeak-onnx-quantized.onnx',
       );
       List<int> bytes = data.buffer.asUint8List(
         data.offsetInBytes,

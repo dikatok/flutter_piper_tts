@@ -25,4 +25,4 @@ dev_dependencies:
 
 flutter:
   assets:
-    - assets/phonemizer/model.onnx
+    - assets/phonemizer/g2p-mbyt5-12l-ipa-childes-espeak-onnx-quantized.onnx
