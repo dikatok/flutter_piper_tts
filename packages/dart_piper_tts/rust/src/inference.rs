@@ -36,7 +36,7 @@ pub(crate) fn infer(
 ) -> TTSResult<Vec<f32>> {
     let ids = phonemes_to_ids(config, phonemes);
     let input_len = ids.len();
-    let input = Array2::<i64>::from_shape_vec((1, input_len), ids).unwrap();
+    let input = Array2::<i64>::from_shape_vec((1, input_len), ids)?;
     let input_lengths = Array1::<i64>::from_iter([input_len as i64]);
     let scales = Array1::<f32>::from_iter([
         config.inference.noise_scale,
@@ -47,22 +47,18 @@ pub(crate) fn infer(
     let input_t = Tensor::<i64>::from_array((
         [1, input_len],
         input.into_raw_vec_and_offset().0.into_boxed_slice(),
-    ))
-    .unwrap();
+    ))?;
     let lengths_t = Tensor::<i64>::from_array((
         [1],
         input_lengths.into_raw_vec_and_offset().0.into_boxed_slice(),
-    ))
-    .unwrap();
+    ))?;
     let scales_t =
-        Tensor::<f32>::from_array(([3], scales.into_raw_vec_and_offset().0.into_boxed_slice()))
-            .unwrap();
+        Tensor::<f32>::from_array(([3], scales.into_raw_vec_and_offset().0.into_boxed_slice()))?;
 
     let outputs = if config.num_speakers > 1 {
         let sid = Array1::<i64>::from_iter([0]);
         let sid_t =
-            Tensor::<i64>::from_array(([1], sid.into_raw_vec_and_offset().0.into_boxed_slice()))
-                .unwrap();
+            Tensor::<i64>::from_array(([1], sid.into_raw_vec_and_offset().0.into_boxed_slice()))?;
         session.run(ort::inputs![input_t, lengths_t, scales_t, sid_t])
     } else {
         session.run(ort::inputs![input_t, lengths_t, scales_t])

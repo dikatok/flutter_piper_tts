@@ -47,9 +47,8 @@ impl Phonemizer {
             debug!("processing chunk: {}", chunk.text_for_model);
             let input_ids = encode(lang, chunk.text_for_model.as_str());
             let seq_len = input_ids.len();
-            let input_ids_arr = Value::from_array(
-                ndarray::Array2::from_shape_vec((1, seq_len), input_ids).unwrap(),
-            )?;
+            let input_ids_arr =
+                Value::from_array(ndarray::Array2::from_shape_vec((1, seq_len), input_ids)?)?;
             let attention_mask_arr = Value::from_array(ndarray::Array2::<i64>::ones((1, seq_len)))?;
 
             let mut decoder_ids: Vec<i64> = vec![PAD_TOKEN_ID];
