@@ -22,7 +22,7 @@ class PiperTTS {
     _receivePort!.sendPort.send(port);
   }
 
-  static void init(({String phonemizerModelPath}) args) {
+  static void init(({String phonemizerModelPath, bool kDebugMode}) args) {
     final phonomizerModelPointer = args.phonemizerModelPath.toNativeUtf8();
 
     _receivePort ??= RawReceivePort((dynamic port) {
@@ -37,6 +37,7 @@ class PiperTTS {
       final result = g.init(
         phonomizerModelPointer.cast<Char>(),
         _nativeCompletionCallback!.nativeFunction,
+        args.kDebugMode,
       );
       final g.FFIInitResponse(:error_message) = result;
       if (error_message.isNotEmpty) {

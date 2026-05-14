@@ -44,7 +44,7 @@ impl Phonemizer {
         let mut phonemes: Vec<String> = Vec::new();
 
         for chunk in chunks {
-            debug!("processing chunk: {}", chunk.text_for_model);
+            debug!("phonemize chunk: {}", chunk.text_for_model);
             let input_ids = encode(lang, chunk.text_for_model.as_str());
             let seq_len = input_ids.len();
             let input_ids_arr =

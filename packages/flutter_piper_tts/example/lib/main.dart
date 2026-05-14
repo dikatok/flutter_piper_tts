@@ -100,6 +100,10 @@ Future<(String, String)> copyModelFromAssets() async {
 
   final exists = await File(modelPath).exists();
 
+  if (exists) {
+    return (modelPath, configPath);
+  }
+
   final modelData = await rootBundle.load(
     'assets/en_US-hfc_female-medium.onnx',
   );

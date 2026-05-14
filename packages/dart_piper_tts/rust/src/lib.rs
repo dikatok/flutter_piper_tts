@@ -41,8 +41,9 @@ static PHONEMIZER_SESSION: OnceLock<Mutex<Phonemizer>> = OnceLock::new();
 pub extern "C" fn init(
     phonemizer_model_path: *const c_char,
     completion_cb: CompletionCallback,
+    is_debug: bool,
 ) -> FFIInitResponse {
-    init_logger();
+    init_logger(is_debug);
 
     let mut cb_guard = COMPLETION_CB.write().unwrap();
     *cb_guard = Some(Mutex::new(completion_cb));

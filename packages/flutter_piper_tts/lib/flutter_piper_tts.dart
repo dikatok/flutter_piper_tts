@@ -1,6 +1,7 @@
 import "dart:io";
 
 import "package:dart_piper_tts/dart_piper_tts.dart" as piper_dart;
+import "package:flutter/foundation.dart";
 import "package:flutter/services.dart";
 import "package:path/path.dart";
 import "package:path_provider/path_provider.dart";
@@ -24,7 +25,10 @@ class PiperTTS {
       );
       await File(phonemizerPath).writeAsBytes(bytes, flush: true);
     }
-    piper_dart.PiperTTS.init((phonemizerModelPath: phonemizerPath));
+    piper_dart.PiperTTS.init((
+      phonemizerModelPath: phonemizerPath,
+      kDebugMode: kDebugMode,
+    ));
   }
 
   static Future<PiperTTS> create({

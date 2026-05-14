@@ -11,12 +11,14 @@ import 'dart:ffi' as ffi;
   FFIInitResponse Function(
     ffi.Pointer<ffi.Char>,
     ffi.Pointer<ffi.NativeFunction<ffi.Void Function(ffi.Int64 port)>>,
+    ffi.Bool,
   )
 >()
 external FFIInitResponse init(
   ffi.Pointer<ffi.Char> phonemizer_model_path,
   ffi.Pointer<ffi.NativeFunction<ffi.Void Function(ffi.Int64 port)>>
   completion_cb,
+  bool is_debug,
 );
 
 @ffi.Native<

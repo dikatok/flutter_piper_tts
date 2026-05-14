@@ -1,5 +1,5 @@
 use std::sync::{
-    Arc, Mutex,
+    Arc,
     atomic::{AtomicBool, AtomicU8, Ordering},
     mpsc,
 };
@@ -111,7 +111,6 @@ impl AudioPlayer {
                             match s {
                                 AudioSlot::Sample(s) => held_sample = s,
                                 AudioSlot::Complete(port) => {
-                                    debug!("completing speech on port: {}", port);
                                     let _ = completion_tx.send(port);
                                 }
                             }

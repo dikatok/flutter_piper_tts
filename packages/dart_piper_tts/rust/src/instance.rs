@@ -63,7 +63,7 @@ impl Instance {
                         dart_port,
                         is_phonemes,
                     } => {
-                        debug!("processing play (is_phonemes: {}): {}", is_phonemes, text);
+                        debug!("play (is_phonemes: {}): {}", is_phonemes, text);
 
                         let phonemes = if is_phonemes {
                             text
@@ -77,7 +77,7 @@ impl Instance {
                             {
                                 Ok(c) => c,
                                 Err(e) => {
-                                    error!("failed to read clauses: {}", e);
+                                    error!("failed to phonemize: {}", e);
                                     continue;
                                 }
                             }
@@ -142,7 +142,7 @@ impl Instance {
                 dart_port,
             })
             .map_err(|err| TTSError {
-                message: format!("Failed to send speech task: {}", err),
+                message: format!("failed to send play speech task: {}", err),
             })?;
 
         Ok(())
@@ -151,18 +151,18 @@ impl Instance {
     pub(crate) fn pause(&self) {
         self.speech_tasks
             .send(SpeechTask::Pause)
-            .expect("Failed to send speech task");
+            .expect("failed to send pause speech task");
     }
 
     pub(crate) fn resume(&self) {
         self.speech_tasks
             .send(SpeechTask::Resume)
-            .expect("Failed to send speech task");
+            .expect("failed to send resume speech task");
     }
 
     pub(crate) fn stop(&self) {
         self.speech_tasks
             .send(SpeechTask::Stop)
-            .expect("Failed to send speech task");
+            .expect("failed to send stop speech task");
     }
 }

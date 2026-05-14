@@ -42,7 +42,9 @@ typedef struct FFIDisposeResponse {
   char *error_message;
 } FFIDisposeResponse;
 
-struct FFIInitResponse init(const char *phonemizer_model_path, CompletionCallback completion_cb);
+struct FFIInitResponse init(const char *phonemizer_model_path,
+                            CompletionCallback completion_cb,
+                            bool is_debug);
 
 struct FFICreateInstanceResponse create_instance(const char *model_path, const char *config_path);
 
