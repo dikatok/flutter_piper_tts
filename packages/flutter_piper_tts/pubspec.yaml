@@ -2,7 +2,7 @@ name: flutter_piper_tts
 description: "TTS in Flutter using Piper TTS models + audio player in one package."
 version: 0.2.0
 repository: https://github.com/dikatok/flutter_piper_tts
-topics: [ tts, audio, flutter ]
+topics: [tts, audio, flutter]
 
 environment:
   sdk: ^3.11.5
@@ -24,4 +24,5 @@ dev_dependencies:
   flutter_lints: ^6.0.0
 
 flutter:
-
+  assets:
+    - assets/phonemizer/model.onnx

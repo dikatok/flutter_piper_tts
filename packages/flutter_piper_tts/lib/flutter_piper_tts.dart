@@ -1,4 +1,8 @@
+import "dart:io";
+
 import "package:dart_piper_tts/dart_piper_tts.dart" as piper_dart;
+import "package:flutter/services.dart";
+import "package:path/path.dart";
 import "package:path_provider/path_provider.dart";
 
 class PiperTTS {
@@ -6,10 +10,21 @@ class PiperTTS {
 
   PiperTTS._(this._tts);
 
-  static Future<void> init({String? dataDir}) async {
-    piper_dart.PiperTTS.init((
-      dataDir: dataDir ?? (await getApplicationDocumentsDirectory()).path,
-    ));
+  static Future<void> init() async {
+    final directory = await getApplicationSupportDirectory();
+    final phonemizerPath = join(directory.path, 'phonemizer.onnx');
+    final exists = await File(phonemizerPath).exists();
+    if (!exists) {
+      final data = await rootBundle.load(
+        'packages/flutter_piper_tts/assets/phonemizer/model.onnx',
+      );
+      List<int> bytes = data.buffer.asUint8List(
+        data.offsetInBytes,
+        data.lengthInBytes,
+      );
+      await File(phonemizerPath).writeAsBytes(bytes, flush: true);
+    }
+    piper_dart.PiperTTS.init((phonemizerModelPath: phonemizerPath));
   }
 
   static Future<PiperTTS> create({

@@ -14,7 +14,7 @@ import 'dart:ffi' as ffi;
   )
 >()
 external FFIInitResponse init(
-  ffi.Pointer<ffi.Char> data_dir,
+  ffi.Pointer<ffi.Char> phonemizer_model_path,
   ffi.Pointer<ffi.NativeFunction<ffi.Void Function(ffi.Int64 port)>>
   completion_cb,
 );

@@ -9,10 +9,10 @@ use std::{
     },
 };
 
-use espeak_ng::install_bundled_data;
-use log::{debug, warn};
-
-use crate::{audio::AudioPlayer, helpers::c_char_to_str, instance::Instance, logging::init_logger};
+use crate::{
+    audio::AudioPlayer, helpers::c_char_to_str, instance::Instance, logging::init_logger,
+    phonemizer::Phonemizer,
+};
 
 pub mod audio;
 pub mod config;
@@ -21,13 +21,13 @@ pub mod helpers;
 pub mod inference;
 pub mod instance;
 pub mod logging;
+pub mod phonemizer;
+pub mod tokenizer;
 
 static INSTANCES: LazyLock<RwLock<HashMap<i32, Instance>>> =
     LazyLock::new(|| RwLock::new(HashMap::new()));
 
 static FD: AtomicI32 = AtomicI32::new(0);
-
-static ESPEAK_DATA_DIR: LazyLock<RwLock<String>> = LazyLock::new(|| RwLock::new("".to_string()));
 
 static AUDIO_PLAYER: OnceLock<Mutex<AudioPlayer>> = OnceLock::new();
 
@@ -35,40 +35,20 @@ pub type DartPort = i64;
 pub type CompletionCallback = unsafe extern "C" fn(port: DartPort);
 static COMPLETION_CB: OnceLock<Mutex<Option<CompletionCallback>>> = OnceLock::new();
 
+static PHONEMIZER_SESSION: OnceLock<Mutex<Phonemizer>> = OnceLock::new();
+
 #[unsafe(no_mangle)]
 pub extern "C" fn init(
-    data_dir: *const c_char,
+    phonemizer_model_path: *const c_char,
     completion_cb: CompletionCallback,
 ) -> FFIInitResponse {
     init_logger();
 
-    let mut global_data_dir = ESPEAK_DATA_DIR.write().unwrap();
-    match global_data_dir.as_str() {
-        "" => {
-            let binding = Path::new(c_char_to_str(data_dir)).join("espeak-ng-data");
-            let path = binding.as_path();
-            debug!("espeak data dir: {}", path.display());
+    PHONEMIZER_SESSION.get_or_init(|| {
+        Mutex::new(Phonemizer::load(Path::new(c_char_to_str(phonemizer_model_path))).unwrap())
+    });
 
-            match install_bundled_data(path) {
-                Ok(_) => (),
-                Err(err) => {
-                    return FFIInitResponse {
-                        error_message: convert_string_to_cstring(&err.to_string()),
-                    };
-                }
-            };
-            *global_data_dir = path.to_str().unwrap().to_string();
-            debug!("espeak bundled data installed");
-        }
-        _ => {
-            warn!("espeak data already installed, skipping");
-        }
-    }
-
-    *COMPLETION_CB
-        .get_or_init(|| Mutex::new(None))
-        .lock()
-        .unwrap() = Some(completion_cb);
+    COMPLETION_CB.get_or_init(|| Mutex::new(Some(completion_cb)));
 
     AUDIO_PLAYER.get_or_init(|| Mutex::new(AudioPlayer::default()));
 

@@ -11,6 +11,12 @@ impl std::fmt::Display for TTSError {
 
 impl std::error::Error for TTSError {}
 
+impl From<String> for TTSError {
+    fn from(e: String) -> Self {
+        TTSError { message: e }
+    }
+}
+
 impl From<std::io::Error> for TTSError {
     fn from(e: std::io::Error) -> Self {
         TTSError {
@@ -29,6 +35,14 @@ impl From<serde_json::Error> for TTSError {
 
 impl From<ort::Error> for TTSError {
     fn from(e: ort::Error) -> Self {
+        TTSError {
+            message: e.to_string(),
+        }
+    }
+}
+
+impl From<ndarray::ShapeError> for TTSError {
+    fn from(e: ndarray::ShapeError) -> Self {
         TTSError {
             message: e.to_string(),
         }

@@ -57,3 +57,4 @@ rustc-ice-*.txt
 
 **/*.onnx
 **/*.onnx.json
+!packages/flutter_piper_tts/assets/models/phonemizer.onnx

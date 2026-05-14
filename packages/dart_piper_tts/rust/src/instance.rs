@@ -4,12 +4,11 @@ use std::{
     sync::mpsc::{self, Sender},
 };
 
-use espeak_ng::Translator;
 use log::{debug, error};
 use ort::session::builder::SessionBuilder;
 
 use crate::{
-    AUDIO_PLAYER, ESPEAK_DATA_DIR,
+    AUDIO_PLAYER, PHONEMIZER_SESSION,
     config::ModelConfig,
     error::{TTSError, TTSResult},
     inference::infer,
@@ -47,16 +46,6 @@ impl Instance {
             .or_else(|| Some("en".to_string()))
             .unwrap();
 
-        let espeak_translator = Translator::new(
-            lang.as_str(),
-            Some(Path::new(ESPEAK_DATA_DIR.read().unwrap().as_str())),
-        )
-        .map_err(|e| TTSError {
-            message: format!("failed to create translator: {}", e),
-        })?;
-
-        debug!("espeak translator created, lang: {}", lang);
-
         let (tx, rx) = mpsc::channel::<SpeechTask>();
 
         std::thread::spawn(move || {
@@ -65,7 +54,13 @@ impl Instance {
                     SpeechTask::Play { text, dart_port } => {
                         debug!("processing speech task: {}", text);
 
-                        let clauses = match espeak_translator.read_clauses(&text) {
+                        let phonemes = match PHONEMIZER_SESSION
+                            .get()
+                            .unwrap()
+                            .lock()
+                            .unwrap()
+                            .phonemize(&lang, &text, None)
+                        {
                             Ok(c) => c,
                             Err(e) => {
                                 error!("failed to read clauses: {}", e);
@@ -73,34 +68,22 @@ impl Instance {
                             }
                         };
 
-                        for clause in clauses {
-                            debug!("clause: {}", clause.text);
+                        debug!("phonemes: {}", phonemes);
 
-                            let phonemes = match espeak_translator.text_to_ipa(&clause.text) {
-                                Ok(p) => p,
-                                Err(e) => {
-                                    error!("failed to phonemize: {}", e);
-                                    continue;
-                                }
-                            };
+                        let samples = match infer(&mut ort_session, &config, &phonemes) {
+                            Ok(s) => s,
+                            Err(e) => {
+                                error!("inference failed: {}", e);
+                                continue;
+                            }
+                        };
 
-                            debug!("phonemes: {}", phonemes);
-
-                            let samples = match infer(&mut ort_session, &config, &phonemes) {
-                                Ok(s) => s,
-                                Err(e) => {
-                                    error!("inference failed: {}", e);
-                                    continue;
-                                }
-                            };
-
-                            AUDIO_PLAYER
-                                .get()
-                                .expect("audio player not initialized")
-                                .lock()
-                                .unwrap()
-                                .play(&samples);
-                        }
+                        AUDIO_PLAYER
+                            .get()
+                            .expect("audio player not initialized")
+                            .lock()
+                            .unwrap()
+                            .play(&samples);
 
                         AUDIO_PLAYER
                             .get()

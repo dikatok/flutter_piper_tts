@@ -22,8 +22,8 @@ class PiperTTS {
     _receivePort!.sendPort.send(port);
   }
 
-  static void init(({String dataDir}) args) {
-    final dataDirPointer = args.dataDir.toNativeUtf8();
+  static void init(({String phonemizerModelPath}) args) {
+    final phonomizerModelPointer = args.phonemizerModelPath.toNativeUtf8();
 
     _receivePort ??= RawReceivePort((dynamic port) {
       _completers.remove(port as int)?.complete();
@@ -35,7 +35,7 @@ class PiperTTS {
 
     try {
       final result = g.init(
-        dataDirPointer.cast<Char>(),
+        phonomizerModelPointer.cast<Char>(),
         _nativeCompletionCallback!.nativeFunction,
       );
       final g.FFIInitResponse(:error_message) = result;
@@ -43,7 +43,7 @@ class PiperTTS {
         throw Exception(error_message.toDartString());
       }
     } finally {
-      calloc.free(dataDirPointer);
+      calloc.free(phonomizerModelPointer);
     }
   }
 
