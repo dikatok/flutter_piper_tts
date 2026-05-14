@@ -33,7 +33,7 @@ static AUDIO_PLAYER: OnceLock<Mutex<AudioPlayer>> = OnceLock::new();
 
 pub type DartPort = i64;
 pub type CompletionCallback = unsafe extern "C" fn(port: DartPort);
-static COMPLETION_CB: OnceLock<Mutex<Option<CompletionCallback>>> = OnceLock::new();
+static COMPLETION_CB: RwLock<Option<Mutex<CompletionCallback>>> = RwLock::new(None);
 
 static PHONEMIZER_SESSION: OnceLock<Mutex<Phonemizer>> = OnceLock::new();
 
@@ -44,11 +44,12 @@ pub extern "C" fn init(
 ) -> FFIInitResponse {
     init_logger();
 
+    let mut cb_guard = COMPLETION_CB.write().unwrap();
+    *cb_guard = Some(Mutex::new(completion_cb));
+
     PHONEMIZER_SESSION.get_or_init(|| {
         Mutex::new(Phonemizer::load(Path::new(c_char_to_str(phonemizer_model_path))).unwrap())
     });
-
-    COMPLETION_CB.get_or_init(|| Mutex::new(Some(completion_cb)));
 
     AUDIO_PLAYER.get_or_init(|| Mutex::new(AudioPlayer::default()));
 

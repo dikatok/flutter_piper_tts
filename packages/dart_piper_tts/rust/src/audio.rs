@@ -4,7 +4,7 @@ use std::sync::{
     mpsc,
 };
 
-use log::debug;
+use log::{debug, warn};
 use ringbuf::{
     HeapProd, HeapRb,
     traits::{Consumer, Producer, Split},
@@ -132,12 +132,14 @@ impl AudioPlayer {
             while let Ok(port) = completion_rx.recv() {
                 if port != -1 {
                     debug!("calling completion callback on port: {}", port);
-                    if let Some(cb) = *COMPLETION_CB
-                        .get_or_init(|| Mutex::new(None))
-                        .lock()
-                        .unwrap()
-                    {
-                        unsafe { cb(port) };
+                    let cb_guard = COMPLETION_CB.read().unwrap();
+                    if let Some(ref mutex) = *cb_guard {
+                        let cb = mutex.lock().unwrap();
+                        unsafe {
+                            cb(port);
+                        }
+                    } else {
+                        warn!("completion callback not initialized");
                     }
                 }
             }
