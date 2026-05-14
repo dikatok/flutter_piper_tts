@@ -31,9 +31,19 @@ external FFICreateInstanceResponse create_instance(
 );
 
 @ffi.Native<
-  FFISpeakResponse Function(ffi.Int32, ffi.Pointer<ffi.Char>, ffi.Int64)
+  FFISpeakResponse Function(
+    ffi.Int32,
+    ffi.Pointer<ffi.Char>,
+    ffi.Bool,
+    ffi.Int64,
+  )
 >()
-external FFISpeakResponse speak(int fd, ffi.Pointer<ffi.Char> text, int port);
+external FFISpeakResponse speak(
+  int fd,
+  ffi.Pointer<ffi.Char> text,
+  bool is_phonemes,
+  int port,
+);
 
 @ffi.Native<FFIPauseResponse Function(ffi.Int32)>()
 external FFIPauseResponse pause(int fd);

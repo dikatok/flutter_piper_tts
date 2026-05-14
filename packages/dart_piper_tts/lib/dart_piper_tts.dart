@@ -73,7 +73,27 @@ class PiperTTS {
     final completer = Completer<void>();
     _completers[id] = completer;
     try {
-      final result = g.speak(_fd, textPointer.cast<Char>(), id);
+      final result = g.speak(_fd, textPointer.cast<Char>(), false, id);
+      final g.FFISpeakResponse(:error_message) = result;
+      if (error_message.isNotEmpty) {
+        throw Exception(error_message.toDartString());
+      }
+    } finally {
+      calloc.free(textPointer);
+    }
+    if (waitForCompletion) return completer.future;
+  }
+
+  Future<void> speakFromPhonemes({
+    required String phonemes,
+    bool waitForCompletion = true,
+  }) async {
+    final textPointer = phonemes.toNativeUtf8();
+    final id = _nextId++;
+    final completer = Completer<void>();
+    _completers[id] = completer;
+    try {
+      final result = g.speak(_fd, textPointer.cast<Char>(), true, id);
       final g.FFISpeakResponse(:error_message) = result;
       if (error_message.isNotEmpty) {
         throw Exception(error_message.toDartString());

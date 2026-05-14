@@ -83,13 +83,19 @@ pub extern "C" fn create_instance(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn speak(fd: i32, text: *const c_char, port: DartPort) -> FFISpeakResponse {
+pub extern "C" fn speak(
+    fd: i32,
+    text: *const c_char,
+    is_phonemes: bool,
+    port: DartPort,
+) -> FFISpeakResponse {
     with_instance_mut(
         fd,
         FFISpeakResponse {
             error_message: convert_string_to_cstring("instance not initialized"),
         },
-        |instance| match instance.speak(c_char_to_str(text), port.clamp(-1, i64::MAX)) {
+        |instance| match instance.speak(c_char_to_str(text), is_phonemes, port.clamp(-1, i64::MAX))
+        {
             Ok(_) => FFISpeakResponse {
                 error_message: convert_string_to_cstring(""),
             },

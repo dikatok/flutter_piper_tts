@@ -15,7 +15,11 @@ use crate::{
 };
 
 enum SpeechTask {
-    Play { text: String, dart_port: i64 },
+    Play {
+        text: String,
+        dart_port: i64,
+        is_phonemes: bool,
+    },
     Resume,
     Pause,
     Stop,
@@ -54,20 +58,28 @@ impl Instance {
         std::thread::spawn(move || {
             while let Ok(task) = rx.recv() {
                 match task {
-                    SpeechTask::Play { text, dart_port } => {
-                        debug!("processing speech task: {}", text);
+                    SpeechTask::Play {
+                        text,
+                        dart_port,
+                        is_phonemes,
+                    } => {
+                        debug!("processing play (is_phonemes: {}): {}", is_phonemes, text);
 
-                        let phonemes = match PHONEMIZER_SESSION
-                            .get()
-                            .unwrap()
-                            .lock()
-                            .unwrap()
-                            .phonemize(&lang, &text, None, None)
-                        {
-                            Ok(c) => c,
-                            Err(e) => {
-                                error!("failed to read clauses: {}", e);
-                                continue;
+                        let phonemes = if is_phonemes {
+                            text
+                        } else {
+                            match PHONEMIZER_SESSION
+                                .get()
+                                .unwrap()
+                                .lock()
+                                .unwrap()
+                                .phonemize(&lang, &text, None, None)
+                            {
+                                Ok(c) => c,
+                                Err(e) => {
+                                    error!("failed to read clauses: {}", e);
+                                    continue;
+                                }
                             }
                         };
 
@@ -122,10 +134,11 @@ impl Instance {
         Ok(Instance { speech_tasks: tx })
     }
 
-    pub(crate) fn speak(&mut self, text: &str, dart_port: i64) -> TTSResult<()> {
+    pub(crate) fn speak(&mut self, text: &str, is_phonemes: bool, dart_port: i64) -> TTSResult<()> {
         self.speech_tasks
             .send(SpeechTask::Play {
                 text: text.to_string(),
+                is_phonemes,
                 dart_port,
             })
             .map_err(|err| TTSError {

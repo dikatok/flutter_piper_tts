@@ -42,6 +42,14 @@ class PiperTTS {
   Future<void> speak(String text, {bool waitForCompletion = true}) =>
       _tts.speak(text, waitForCompletion: waitForCompletion);
 
+  Future<void> speakFromPhonemes({
+    required String phonemes,
+    bool waitForCompletion = true,
+  }) => _tts.speakFromPhonemes(
+    phonemes: phonemes,
+    waitForCompletion: waitForCompletion,
+  );
+
   void pause() => _tts.pause();
 
   void resume() => _tts.resume();

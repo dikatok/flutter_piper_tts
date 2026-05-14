@@ -46,7 +46,7 @@ struct FFIInitResponse init(const char *phonemizer_model_path, CompletionCallbac
 
 struct FFICreateInstanceResponse create_instance(const char *model_path, const char *config_path);
 
-struct FFISpeakResponse speak(int32_t fd, const char *text, DartPort port);
+struct FFISpeakResponse speak(int32_t fd, const char *text, bool is_phonemes, DartPort port);
 
 struct FFIPauseResponse pause(int32_t fd);
 
