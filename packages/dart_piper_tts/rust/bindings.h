@@ -18,7 +18,7 @@ typedef int64_t DartPort;
 typedef void (*CompletionCallback)(DartPort port);
 
 typedef struct FFICreateInstanceResponse {
-  int32_t fd;
+  void *instance;
   char *error_message;
 } FFICreateInstanceResponse;
 
@@ -38,22 +38,21 @@ typedef struct FFIStopResponse {
   char *error_message;
 } FFIStopResponse;
 
-typedef struct FFIDisposeResponse {
-  char *error_message;
-} FFIDisposeResponse;
-
 struct FFIInitResponse init(const char *phonemizer_model_path,
                             CompletionCallback completion_cb,
                             bool is_debug);
 
 struct FFICreateInstanceResponse create_instance(const char *model_path, const char *config_path);
 
-struct FFISpeakResponse speak(int32_t fd, const char *text, bool is_phonemes, DartPort port);
+struct FFISpeakResponse speak(void *instance_ptr,
+                              const char *text,
+                              bool is_phonemes,
+                              DartPort port);
 
-struct FFIPauseResponse pause(int32_t fd);
+struct FFIPauseResponse pause(void *instance_ptr);
 
-struct FFIResumeResponse resume(int32_t fd);
+struct FFIResumeResponse resume(void *instance_ptr);
 
-struct FFIStopResponse stop(int32_t fd);
+struct FFIStopResponse stop(void *instance_ptr);
 
-struct FFIDisposeResponse dispose(int32_t fd);
+void dispose(void *instance_ptr);

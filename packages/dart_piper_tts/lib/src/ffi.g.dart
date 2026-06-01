@@ -34,38 +34,37 @@ external FFICreateInstanceResponse create_instance(
 
 @ffi.Native<
   FFISpeakResponse Function(
-    ffi.Int32,
+    ffi.Pointer<ffi.Void>,
     ffi.Pointer<ffi.Char>,
     ffi.Bool,
     ffi.Int64,
   )
 >()
 external FFISpeakResponse speak(
-  int fd,
+  ffi.Pointer<ffi.Void> instance_ptr,
   ffi.Pointer<ffi.Char> text,
   bool is_phonemes,
   int port,
 );
 
-@ffi.Native<FFIPauseResponse Function(ffi.Int32)>()
-external FFIPauseResponse pause(int fd);
+@ffi.Native<FFIPauseResponse Function(ffi.Pointer<ffi.Void>)>()
+external FFIPauseResponse pause(ffi.Pointer<ffi.Void> instance_ptr);
 
-@ffi.Native<FFIResumeResponse Function(ffi.Int32)>()
-external FFIResumeResponse resume(int fd);
+@ffi.Native<FFIResumeResponse Function(ffi.Pointer<ffi.Void>)>()
+external FFIResumeResponse resume(ffi.Pointer<ffi.Void> instance_ptr);
 
-@ffi.Native<FFIStopResponse Function(ffi.Int32)>()
-external FFIStopResponse stop(int fd);
+@ffi.Native<FFIStopResponse Function(ffi.Pointer<ffi.Void>)>()
+external FFIStopResponse stop(ffi.Pointer<ffi.Void> instance_ptr);
 
-@ffi.Native<FFIDisposeResponse Function(ffi.Int32)>()
-external FFIDisposeResponse dispose(int fd);
+@ffi.Native<ffi.Void Function(ffi.Pointer<ffi.Void>)>()
+external void dispose(ffi.Pointer<ffi.Void> instance_ptr);
 
 final class FFIInitResponse extends ffi.Struct {
   external ffi.Pointer<ffi.Char> error_message;
 }
 
 final class FFICreateInstanceResponse extends ffi.Struct {
-  @ffi.Int32()
-  external int fd;
+  external ffi.Pointer<ffi.Void> instance;
 
   external ffi.Pointer<ffi.Char> error_message;
 }
@@ -83,9 +82,5 @@ final class FFIResumeResponse extends ffi.Struct {
 }
 
 final class FFIStopResponse extends ffi.Struct {
-  external ffi.Pointer<ffi.Char> error_message;
-}
-
-final class FFIDisposeResponse extends ffi.Struct {
   external ffi.Pointer<ffi.Char> error_message;
 }

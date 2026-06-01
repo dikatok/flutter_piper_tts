@@ -5,7 +5,7 @@ import 'dart:isolate';
 import 'package:dart_piper_tts/src/ffi.g.dart' as g;
 import 'package:ffi/ffi.dart';
 
-class PiperTTS {
+class PiperTTS implements Finalizable {
   static final Map<int, Completer<void>> _completers = {};
 
   static RawReceivePort? _receivePort;
@@ -14,9 +14,17 @@ class PiperTTS {
 
   static int _nextId = 0;
 
-  final int _fd;
+  static final NativeFinalizer _finalizer = NativeFinalizer(
+    Native.addressOf<NativeFunction<Void Function(Pointer<Void>)>>(
+      g.dispose,
+    ).cast(),
+  );
 
-  PiperTTS._(this._fd);
+  final Pointer<Void> _instancePtr;
+
+  PiperTTS._(this._instancePtr) {
+    _finalizer.attach(this, _instancePtr.cast(), detach: this);
+  }
 
   static void _onNativeComplete(int port) {
     _receivePort!.sendPort.send(port);
@@ -57,11 +65,11 @@ class PiperTTS {
         modelPathPointer.cast<Char>(),
         configPathPointer.cast<Char>(),
       );
-      final g.FFICreateInstanceResponse(:fd, :error_message) = result;
+      final g.FFICreateInstanceResponse(:instance, :error_message) = result;
       if (error_message.isNotEmpty) {
         throw Exception(error_message.toDartString());
       }
-      return PiperTTS._(fd);
+      return PiperTTS._(instance);
     } finally {
       calloc.free(modelPathPointer);
       calloc.free(configPathPointer);
@@ -74,7 +82,7 @@ class PiperTTS {
     final completer = Completer<void>();
     _completers[id] = completer;
     try {
-      final result = g.speak(_fd, textPointer.cast<Char>(), false, id);
+      final result = g.speak(_instancePtr, textPointer.cast<Char>(), false, id);
       final g.FFISpeakResponse(:error_message) = result;
       if (error_message.isNotEmpty) {
         throw Exception(error_message.toDartString());
@@ -94,7 +102,7 @@ class PiperTTS {
     final completer = Completer<void>();
     _completers[id] = completer;
     try {
-      final result = g.speak(_fd, textPointer.cast<Char>(), true, id);
+      final result = g.speak(_instancePtr, textPointer.cast<Char>(), true, id);
       final g.FFISpeakResponse(:error_message) = result;
       if (error_message.isNotEmpty) {
         throw Exception(error_message.toDartString());
@@ -106,7 +114,7 @@ class PiperTTS {
   }
 
   void pause([dynamic _]) {
-    final result = g.pause(_fd);
+    final result = g.pause(_instancePtr);
     final g.FFIPauseResponse(:error_message) = result;
     if (error_message.isNotEmpty) {
       throw Exception(error_message.toDartString());
@@ -114,7 +122,7 @@ class PiperTTS {
   }
 
   void resume([dynamic _]) {
-    final result = g.resume(_fd);
+    final result = g.resume(_instancePtr);
     final g.FFIResumeResponse(:error_message) = result;
     if (error_message.isNotEmpty) {
       throw Exception(error_message.toDartString());
@@ -122,7 +130,7 @@ class PiperTTS {
   }
 
   void stop([dynamic _]) {
-    final result = g.stop(_fd);
+    final result = g.stop(_instancePtr);
     final g.FFIStopResponse(:error_message) = result;
     if (error_message.isNotEmpty) {
       throw Exception(error_message.toDartString());
@@ -130,11 +138,8 @@ class PiperTTS {
   }
 
   void dispose() {
-    final result = g.dispose(_fd);
-    final g.FFIDisposeResponse(:error_message) = result;
-    if (error_message.isNotEmpty) {
-      throw Exception(error_message.toDartString());
-    }
+    _finalizer.detach(this);
+    g.dispose(_instancePtr);
   }
 }
 
