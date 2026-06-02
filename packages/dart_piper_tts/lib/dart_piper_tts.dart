@@ -6,13 +6,14 @@ import 'package:dart_piper_tts/src/ffi.g.dart' as g;
 import 'package:ffi/ffi.dart';
 
 class PiperTTS implements Finalizable {
-  static final Map<int, Completer<void>> _completers = {};
+  static final StreamController<int> _completionStreamController =
+      StreamController<int>.broadcast();
 
   static RawReceivePort? _receivePort;
 
   static NativeCallable<Void Function(Int64)>? _nativeCompletionCallback;
 
-  static int _nextId = 0;
+  static int _nextCompletionId = 0;
 
   static final NativeFinalizer _finalizer = NativeFinalizer(
     Native.addressOf<NativeFunction<Void Function(Pointer<Void>)>>(
@@ -34,7 +35,7 @@ class PiperTTS implements Finalizable {
     final phonomizerModelPointer = args.phonemizerModelPath.toNativeUtf8();
 
     _receivePort ??= RawReceivePort((dynamic port) {
-      _completers.remove(port as int)?.complete();
+      _completionStreamController.add(port);
     });
 
     _nativeCompletionCallback ??= NativeCallable<Void Function(Int64)>.listener(
@@ -78,9 +79,10 @@ class PiperTTS implements Finalizable {
 
   Future<void> speak(String text, {bool waitForCompletion = true}) async {
     final textPointer = text.toNativeUtf8();
-    final id = _nextId++;
-    final completer = Completer<void>();
-    _completers[id] = completer;
+    final id = _nextCompletionId++;
+    final playbackComplete = _completionStreamController.stream
+        .firstWhere((id_) => id_ == id)
+        .then((_) {});
     try {
       final result = g.speak(_instancePtr, textPointer.cast<Char>(), false, id);
       final g.FFISpeakResponse(:error_message) = result;
@@ -90,7 +92,7 @@ class PiperTTS implements Finalizable {
     } finally {
       calloc.free(textPointer);
     }
-    if (waitForCompletion) return completer.future;
+    if (waitForCompletion) return playbackComplete;
   }
 
   Future<void> speakFromPhonemes({
@@ -98,9 +100,10 @@ class PiperTTS implements Finalizable {
     bool waitForCompletion = true,
   }) async {
     final textPointer = phonemes.toNativeUtf8();
-    final id = _nextId++;
-    final completer = Completer<void>();
-    _completers[id] = completer;
+    final id = _nextCompletionId++;
+    final playbackComplete = _completionStreamController.stream
+        .firstWhere((id_) => id_ == id)
+        .then((_) {});
     try {
       final result = g.speak(_instancePtr, textPointer.cast<Char>(), true, id);
       final g.FFISpeakResponse(:error_message) = result;
@@ -110,7 +113,7 @@ class PiperTTS implements Finalizable {
     } finally {
       calloc.free(textPointer);
     }
-    if (waitForCompletion) return completer.future;
+    if (waitForCompletion) return playbackComplete;
   }
 
   void pause([dynamic _]) {
@@ -144,7 +147,7 @@ class PiperTTS implements Finalizable {
 }
 
 extension on Pointer<Char> {
-  bool get isEmpty => this == nullptr || cast<Utf8>().toDartString().isEmpty;
+  bool get isEmpty => this == nullptr || toDartString().isEmpty;
 
   bool get isNotEmpty => !isEmpty;
 
