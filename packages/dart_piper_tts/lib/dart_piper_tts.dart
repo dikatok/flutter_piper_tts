@@ -76,10 +76,10 @@ class PiperTTS implements Finalizable {
   Future<void> speak(
     String text, {
     bool waitForCompletion = true,
-    PhonemizerStrategy strategy = PhonemizerStrategy.neuralOnly,
+    PhonemizerStrategy phonemizerStrategy = PhonemizerStrategy.neuralOnly,
   }) async {
     final textPointer = text.toNativeUtf8();
-    final strategyPointer = strategy.native.toNativeUtf8();
+    final phonemizerStrategyPointer = phonemizerStrategy.native.toNativeUtf8();
     final id = _nextCompletionId++;
     final playbackComplete = _completionStreamController.stream
         .firstWhere((id_) => id_ == id)
@@ -90,7 +90,7 @@ class PiperTTS implements Finalizable {
         textPointer.cast<Char>(),
         false,
         id,
-        strategyPointer.cast<Char>(),
+        phonemizerStrategyPointer.cast<Char>(),
       );
       final g.FFISpeakResponse(:error_message) = result;
       if (error_message.isNotEmpty) {
@@ -98,7 +98,7 @@ class PiperTTS implements Finalizable {
       }
     } finally {
       calloc.free(textPointer);
-      calloc.free(strategyPointer);
+      calloc.free(phonemizerStrategyPointer);
     }
     if (waitForCompletion) return playbackComplete;
   }
@@ -106,10 +106,10 @@ class PiperTTS implements Finalizable {
   Future<void> speakFromPhonemes({
     required String phonemes,
     bool waitForCompletion = true,
-    PhonemizerStrategy strategy = PhonemizerStrategy.neuralOnly,
+    PhonemizerStrategy phonemizerStrategy = PhonemizerStrategy.neuralOnly,
   }) async {
     final textPointer = phonemes.toNativeUtf8();
-    final strategyPointer = strategy.native.toNativeUtf8();
+    final phonemizerStrategyPointer = phonemizerStrategy.native.toNativeUtf8();
     final id = _nextCompletionId++;
     final playbackComplete = _completionStreamController.stream
         .firstWhere((id_) => id_ == id)
@@ -120,7 +120,7 @@ class PiperTTS implements Finalizable {
         textPointer.cast<Char>(),
         true,
         id,
-        strategyPointer.cast<Char>(),
+        phonemizerStrategyPointer.cast<Char>(),
       );
       final g.FFISpeakResponse(:error_message) = result;
       if (error_message.isNotEmpty) {
@@ -128,7 +128,7 @@ class PiperTTS implements Finalizable {
       }
     } finally {
       calloc.free(textPointer);
-      calloc.free(strategyPointer);
+      calloc.free(phonemizerStrategyPointer);
     }
     if (waitForCompletion) return playbackComplete;
   }

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_piper_tts/flutter_piper_tts.dart';
@@ -9,11 +10,8 @@ import 'package:path_provider/path_provider.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final (modelPath, configPath) = await copyModelFromAssets();
-  await PiperTTS.init();
-  final tts = await PiperTTS.create(
-    modelPath: modelPath,
-    configPath: configPath,
-  );
+  PiperTTS.init(kDebugMode: kDebugMode);
+  final tts = PiperTTS.create(modelPath: modelPath, configPath: configPath);
   tts.speak('Hello world!');
   runApp(MyApp(tts: tts));
 }
