@@ -16,6 +16,7 @@ unaccent = "0.1.1"
 unicode-segmentation = "1.13.2"
 rsepitran = { git = "https://github.com/dmort27/epitran.rs.git", package = "rsepitran" }
 cmudict-fast = "0.8.0"
+regex = "1.12.3"
 
 [build-dependencies]
 cbindgen = "0.29.0"

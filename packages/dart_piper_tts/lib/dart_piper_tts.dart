@@ -76,7 +76,7 @@ class PiperTTS implements Finalizable {
   Future<void> speak(
     String text, {
     bool waitForCompletion = true,
-    PhonemizerStrategy phonemizerStrategy = PhonemizerStrategy.neuralOnly,
+    PhonemizerStrategy phonemizerStrategy = PhonemizerStrategy.neuralWord,
   }) async {
     final textPointer = text.toNativeUtf8();
     final phonemizerStrategyPointer = phonemizerStrategy.native.toNativeUtf8();
@@ -106,7 +106,7 @@ class PiperTTS implements Finalizable {
   Future<void> speakFromPhonemes({
     required String phonemes,
     bool waitForCompletion = true,
-    PhonemizerStrategy phonemizerStrategy = PhonemizerStrategy.neuralOnly,
+    PhonemizerStrategy phonemizerStrategy = PhonemizerStrategy.neuralWord,
   }) async {
     final textPointer = phonemes.toNativeUtf8();
     final phonemizerStrategyPointer = phonemizerStrategy.native.toNativeUtf8();
@@ -172,7 +172,8 @@ extension on Pointer<Char> {
 }
 
 enum PhonemizerStrategy {
-  neuralOnly("neural"),
+  neuralSentence("neural_sentence"),
+  neuralWord("neural_word"),
   dictionaryWithNeuralFallback('dict_neural'),
   dictionaryWithOmitUnknown('dict_omit');
 

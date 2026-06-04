@@ -7,6 +7,9 @@ import 'package:flutter_piper_tts/flutter_piper_tts.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 
+const modelFile = 'en_US-lessac-medium.onnx';
+const configFile = 'en_US-lessac-medium.onnx.json';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final (modelPath, configPath) = await copyModelFromAssets();
@@ -56,11 +59,51 @@ class _MyAppState extends State<MyApp> {
                   onPressed: () async {
                     await widget.tts.speak(
                       controller.text,
+                      phonemizerStrategy: PhonemizerStrategy.neuralSentence,
+                    );
+                  },
+                  child: const Text(
+                    "speak (phonemizer: neuralSentence)",
+                    style: textStyle,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    await widget.tts.speak(
+                      controller.text,
+                      phonemizerStrategy: PhonemizerStrategy.neuralWord,
+                    );
+                  },
+                  child: const Text(
+                    "speak (phonemizer: neuralWord)",
+                    style: textStyle,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    await widget.tts.speak(
+                      controller.text,
+                      phonemizerStrategy:
+                          PhonemizerStrategy.dictionaryWithNeuralFallback,
+                    );
+                  },
+                  child: const Text(
+                    "speak (phonemizer: dictionaryWithNeuralFallback)",
+                    style: textStyle,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    await widget.tts.speak(
+                      controller.text,
                       phonemizerStrategy:
                           PhonemizerStrategy.dictionaryWithOmitUnknown,
                     );
                   },
-                  child: const Text("speak", style: textStyle),
+                  child: const Text(
+                    "speak (phonemizer: dictionaryWithOmitUnknown)",
+                    style: textStyle,
+                  ),
                 ),
                 TextButton(
                   onPressed: () async {
@@ -88,12 +131,6 @@ class _MyAppState extends State<MyApp> {
                   },
                   child: const Text("stop", style: textStyle),
                 ),
-                TextButton(
-                  onPressed: () {
-                    widget.tts.dispose();
-                  },
-                  child: const Text("dispose", style: textStyle),
-                ),
               ],
             ),
           ),
@@ -105,8 +142,8 @@ class _MyAppState extends State<MyApp> {
 
 Future<(String, String)> copyModelFromAssets() async {
   final directory = await getApplicationSupportDirectory();
-  final modelPath = join(directory.path, 'en_US-lessac-medium.onnx');
-  final configPath = join(directory.path, 'en_US-lessac-medium.onnx.json');
+  final modelPath = join(directory.path, modelFile);
+  final configPath = join(directory.path, configFile);
 
   final exists = await File(modelPath).exists();
 
@@ -114,7 +151,7 @@ Future<(String, String)> copyModelFromAssets() async {
     return (modelPath, configPath);
   }
 
-  final modelData = await rootBundle.load('assets/en_US-lessac-medium.onnx');
+  final modelData = await rootBundle.load("assets/$modelFile");
   List<int> bytes = modelData.buffer.asUint8List(
     modelData.offsetInBytes,
     modelData.lengthInBytes,
@@ -122,9 +159,7 @@ Future<(String, String)> copyModelFromAssets() async {
 
   await File(modelPath).writeAsBytes(bytes, flush: true);
 
-  final configData = await rootBundle.load(
-    'assets/en_US-lessac-medium.onnx.json',
-  );
+  final configData = await rootBundle.load("assets/$configFile");
   bytes = configData.buffer.asUint8List(
     configData.offsetInBytes,
     configData.lengthInBytes,

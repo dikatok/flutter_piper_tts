@@ -3,7 +3,6 @@ use std::sync::{Mutex, OnceLock};
 use log::debug;
 use ndarray::ArrayViewD;
 use ort::{session::Session, value::Value};
-use unaccent::unaccent;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::error::TTSError;
@@ -41,21 +40,13 @@ impl NeuralPhonemizer {
             ));
         }
 
-        let cleaned_text = unaccent(text)
-            .chars()
-            .filter(|c| c.is_alphanumeric() || ".!? ".contains(*c))
-            .collect::<String>()
-            .split_whitespace()
-            .collect::<Vec<_>>()
-            .join(" ");
-
-        let chunks = chunk_text(cleaned_text.as_str(), chunk_size.unwrap_or(100));
+        let chunks = chunk_text(text, chunk_size.unwrap_or(100));
 
         let mut phonemes: Vec<String> = Vec::new();
 
         for chunk in chunks {
-            debug!("phonemize chunk: {}", chunk.text_for_model);
-            let input_ids = encode(lang, chunk.text_for_model.as_str());
+            debug!("phonemize chunk: {}", chunk);
+            let input_ids = encode(lang, chunk.as_str());
             let seq_len = input_ids.len();
             let input_ids_arr =
                 Value::from_array(ndarray::Array2::from_shape_vec((1, seq_len), input_ids)?)?;
@@ -104,40 +95,14 @@ impl NeuralPhonemizer {
             }
 
             let decoded_ipa = decode(&generated);
-            let final_phonemes = format!("{}{}", decoded_ipa, chunk.original_punctuation);
-            phonemes.push(final_phonemes);
+            phonemes.push(decoded_ipa);
         }
 
         Ok(phonemes.join(" "))
     }
 }
 
-struct PhonemeChunk {
-    text_for_model: String,       // Canonicalized (ends in '.')
-    original_punctuation: String, // The actual mark (!, ?, ,)
-}
-
-impl PhonemeChunk {
-    fn new(text: &str) -> Self {
-        let trimmed = text.trim();
-
-        if let Some(last) = trimmed.chars().last()
-            && last.is_ascii_punctuation()
-        {
-            return Self {
-                text_for_model: trimmed[..trimmed.len() - last.len_utf8()].to_string(),
-                original_punctuation: last.to_string(),
-            };
-        }
-
-        Self {
-            text_for_model: trimmed.to_string(),
-            original_punctuation: "".to_string(),
-        }
-    }
-}
-
-fn chunk_text(text: &str, max_chars: usize) -> Vec<PhonemeChunk> {
+fn chunk_text(text: &str, max_chars: usize) -> Vec<String> {
     let mut chunks = Vec::new();
     let mut current_chunk = String::new();
 
@@ -155,9 +120,6 @@ fn chunk_text(text: &str, max_chars: usize) -> Vec<PhonemeChunk> {
     }
 
     chunks
-        .iter()
-        .map(|c| PhonemeChunk::new(c.as_str()))
-        .collect()
 }
 
 /// ByT5 tokenizer

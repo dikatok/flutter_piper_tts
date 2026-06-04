@@ -1,12 +1,11 @@
 use std::{
-    ffi::{CString, c_char, c_void},
+    ffi::{CStr, CString, c_char, c_void},
     path::Path,
     str::FromStr,
 };
 
 use crate::{
     audio::{AudioPlayer, AudioPlayerConfig, CompletionCallback, DartPort},
-    helpers::c_char_to_str,
     instance::Instance,
     logging::init_logger,
     phonemizer::phonemizer::{PhonemizationStrategy, Phonemizer},
@@ -15,7 +14,6 @@ use crate::{
 pub(crate) mod audio;
 pub(crate) mod config;
 pub(crate) mod error;
-pub(crate) mod helpers;
 pub(crate) mod inference;
 pub(crate) mod instance;
 pub(crate) mod logging;
@@ -151,4 +149,14 @@ pub struct FFIStopResponse {
 #[repr(C)]
 pub struct FFIDisposeResponse {
     pub error_message: *mut c_char,
+}
+
+fn c_char_to_str(ptr: *const c_char) -> &'static str {
+    // 1. Safety check for null
+    if ptr.is_null() { /* handle error */ }
+
+    // 2. Convert raw pointer to CStr
+    let c_str = unsafe { CStr::from_ptr(ptr) };
+
+    c_str.to_str().unwrap()
 }
