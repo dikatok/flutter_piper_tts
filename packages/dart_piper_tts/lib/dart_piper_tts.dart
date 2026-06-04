@@ -31,9 +31,7 @@ class PiperTTS implements Finalizable {
     _receivePort!.sendPort.send(port);
   }
 
-  static void init(({String phonemizerModelPath, bool kDebugMode}) args) {
-    final phonomizerModelPointer = args.phonemizerModelPath.toNativeUtf8();
-
+  static void init(({bool kDebugMode}) args) {
     _receivePort ??= RawReceivePort((dynamic port) {
       _completionStreamController.add(port);
     });
@@ -42,18 +40,13 @@ class PiperTTS implements Finalizable {
       _onNativeComplete,
     );
 
-    try {
-      final result = g.init(
-        phonomizerModelPointer.cast<Char>(),
-        _nativeCompletionCallback!.nativeFunction,
-        args.kDebugMode,
-      );
-      final g.FFIInitResponse(:error_message) = result;
-      if (error_message.isNotEmpty) {
-        throw Exception(error_message.toDartString());
-      }
-    } finally {
-      calloc.free(phonomizerModelPointer);
+    final result = g.init(
+      _nativeCompletionCallback!.nativeFunction,
+      args.kDebugMode,
+    );
+    final g.FFIInitResponse(:error_message) = result;
+    if (error_message.isNotEmpty) {
+      throw Exception(error_message.toDartString());
     }
   }
 
@@ -77,20 +70,32 @@ class PiperTTS implements Finalizable {
     }
   }
 
-  Future<void> speak(String text, {bool waitForCompletion = true}) async {
+  Future<void> speak(
+    String text, {
+    bool waitForCompletion = true,
+    PhonemizerStrategy strategy = PhonemizerStrategy.neuralOnly,
+  }) async {
     final textPointer = text.toNativeUtf8();
+    final strategyPointer = strategy.native.toNativeUtf8();
     final id = _nextCompletionId++;
     final playbackComplete = _completionStreamController.stream
         .firstWhere((id_) => id_ == id)
         .then((_) {});
     try {
-      final result = g.speak(_instancePtr, textPointer.cast<Char>(), false, id);
+      final result = g.speak(
+        _instancePtr,
+        textPointer.cast<Char>(),
+        false,
+        id,
+        strategyPointer.cast<Char>(),
+      );
       final g.FFISpeakResponse(:error_message) = result;
       if (error_message.isNotEmpty) {
         throw Exception(error_message.toDartString());
       }
     } finally {
       calloc.free(textPointer);
+      calloc.free(strategyPointer);
     }
     if (waitForCompletion) return playbackComplete;
   }
@@ -98,20 +103,29 @@ class PiperTTS implements Finalizable {
   Future<void> speakFromPhonemes({
     required String phonemes,
     bool waitForCompletion = true,
+    PhonemizerStrategy strategy = PhonemizerStrategy.neuralOnly,
   }) async {
     final textPointer = phonemes.toNativeUtf8();
+    final strategyPointer = strategy.native.toNativeUtf8();
     final id = _nextCompletionId++;
     final playbackComplete = _completionStreamController.stream
         .firstWhere((id_) => id_ == id)
         .then((_) {});
     try {
-      final result = g.speak(_instancePtr, textPointer.cast<Char>(), true, id);
+      final result = g.speak(
+        _instancePtr,
+        textPointer.cast<Char>(),
+        true,
+        id,
+        strategyPointer.cast<Char>(),
+      );
       final g.FFISpeakResponse(:error_message) = result;
       if (error_message.isNotEmpty) {
         throw Exception(error_message.toDartString());
       }
     } finally {
       calloc.free(textPointer);
+      calloc.free(strategyPointer);
     }
     if (waitForCompletion) return playbackComplete;
   }
@@ -152,4 +166,14 @@ extension on Pointer<Char> {
   bool get isNotEmpty => !isEmpty;
 
   String toDartString() => cast<Utf8>().toDartString();
+}
+
+enum PhonemizerStrategy {
+  neuralOnly("neural"),
+  dictionaryWithNeuralFallback('dict_neural'),
+  dictionaryWithOmitUnknown('dict_omit');
+
+  final String native;
+
+  const PhonemizerStrategy(this.native);
 }

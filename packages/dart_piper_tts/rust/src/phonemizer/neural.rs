@@ -1,36 +1,46 @@
-use std::path::Path;
+use std::sync::{Mutex, OnceLock};
 
 use log::debug;
 use ndarray::ArrayViewD;
-use ort::{
-    session::{Session, builder::SessionBuilder},
-    value::Value,
-};
+use ort::{session::Session, value::Value};
 use unaccent::unaccent;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::{
-    error::TTSError,
-    tokenizer::{EOS_TOKEN_ID, PAD_TOKEN_ID, decode, encode},
-};
+use crate::error::TTSError;
 
-pub(crate) struct Phonemizer {
+const ONNX_BYTES: &[u8] =
+    include_bytes!("../assets/phonemizer/g2p-mbyt5-12l-ipa-childes-espeak-onnx-quantized.onnx");
+
+static SHARED: OnceLock<Mutex<NeuralPhonemizer>> = OnceLock::new();
+
+pub(crate) struct NeuralPhonemizer {
     session: Session,
 }
 
-impl Phonemizer {
-    pub fn load(model_path: &Path) -> Result<Self, TTSError> {
-        let session = SessionBuilder::new()?.commit_from_file(model_path)?;
-        Ok(Self { session })
+impl NeuralPhonemizer {
+    pub(crate) fn init() {
+        SHARED.get_or_init(|| {
+            Mutex::new(NeuralPhonemizer {
+                session: Session::builder()
+                    .unwrap()
+                    .commit_from_memory(ONNX_BYTES)
+                    .expect("Failed to initialize static ONNX G2P session"),
+            })
+        });
     }
 
-    pub fn phonemize(
-        &mut self,
+    pub(crate) fn phonemize(
         lang: &str,
         text: &str,
         chunk_size: Option<usize>,
         max_len: Option<usize>,
     ) -> Result<String, TTSError> {
+        if SHARED.get().is_none() {
+            return Err(TTSError::from(
+                "Neural phonemizer not initialized".to_string(),
+            ));
+        }
+
         let cleaned_text = unaccent(text)
             .chars()
             .filter(|c| c.is_alphanumeric() || ".!? ".contains(*c))
@@ -39,7 +49,7 @@ impl Phonemizer {
             .collect::<Vec<_>>()
             .join(" ");
 
-        let chunks = self.chunk_text(cleaned_text.as_str(), chunk_size.unwrap_or(100));
+        let chunks = chunk_text(cleaned_text.as_str(), chunk_size.unwrap_or(100));
 
         let mut phonemes: Vec<String> = Vec::new();
 
@@ -60,7 +70,9 @@ impl Phonemizer {
                     decoder_ids.clone(),
                 )?)?;
 
-                let outputs = self.session.run(ort::inputs![
+                let mut guard = SHARED.get().unwrap().lock().unwrap();
+
+                let outputs = guard.session.run(ort::inputs![
                     "input_ids"         => input_ids_arr.clone(),
                     "attention_mask"    => attention_mask_arr.clone(),
                     "decoder_input_ids" => decoder_ids_arr
@@ -98,29 +110,6 @@ impl Phonemizer {
 
         Ok(phonemes.join(" "))
     }
-
-    fn chunk_text(&self, text: &str, max_chars: usize) -> Vec<PhonemeChunk> {
-        let mut chunks = Vec::new();
-        let mut current_chunk = String::new();
-
-        for sentence in text.unicode_sentences() {
-            if current_chunk.len() + sentence.len() > max_chars && !current_chunk.is_empty() {
-                chunks.push(current_chunk.trim().to_string());
-                current_chunk = String::new();
-            }
-            current_chunk.push_str(sentence);
-            current_chunk.push(' ');
-        }
-
-        if !current_chunk.is_empty() {
-            chunks.push(current_chunk.trim().to_string());
-        }
-
-        chunks
-            .iter()
-            .map(|c| PhonemeChunk::new(c.as_str()))
-            .collect()
-    }
 }
 
 struct PhonemeChunk {
@@ -146,4 +135,45 @@ impl PhonemeChunk {
             original_punctuation: "".to_string(),
         }
     }
+}
+
+fn chunk_text(text: &str, max_chars: usize) -> Vec<PhonemeChunk> {
+    let mut chunks = Vec::new();
+    let mut current_chunk = String::new();
+
+    for sentence in text.unicode_sentences() {
+        if current_chunk.len() + sentence.len() > max_chars && !current_chunk.is_empty() {
+            chunks.push(current_chunk.trim().to_string());
+            current_chunk = String::new();
+        }
+        current_chunk.push_str(sentence);
+        current_chunk.push(' ');
+    }
+
+    if !current_chunk.is_empty() {
+        chunks.push(current_chunk.trim().to_string());
+    }
+
+    chunks
+        .iter()
+        .map(|c| PhonemeChunk::new(c.as_str()))
+        .collect()
+}
+
+/// ByT5 tokenizer
+/// Token IDs: 0=PAD, 1=EOS, 2=UNK, 3..258 = UTF-8 byte values 0..255
+
+const PAD_TOKEN_ID: i64 = 0;
+const EOS_TOKEN_ID: i64 = 1;
+
+/// Encode "<lang>: text" into ByT5 token IDs.
+fn encode(lang: &str, text: &str) -> Vec<i64> {
+    let input = format!("<{lang}>: {text}");
+    input.bytes().map(|b| b as i64 + 3).collect()
+}
+
+/// Decode ByT5 token IDs back to a UTF-8 string.
+fn decode(token_ids: &[i64]) -> String {
+    let bytes: Vec<u8> = token_ids.iter().map(|&t| (t - 3) as u8).collect();
+    String::from_utf8_lossy(&bytes).into_owned()
 }

@@ -56,9 +56,21 @@ class _MyAppState extends State<MyApp> {
                 ),
                 TextButton(
                   onPressed: () async {
-                    await widget.tts.speak(controller.text);
+                    await widget.tts.speak(
+                      controller.text,
+                      phonemizerStrategy:
+                          PhonemizerStrategy.dictionaryWithOmitUnknown,
+                    );
                   },
                   child: const Text("speak", style: textStyle),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    await widget.tts.speakFromPhonemes(
+                      phonemes: controller.text,
+                    );
+                  },
+                  child: const Text("speak phonemes", style: textStyle),
                 ),
                 TextButton(
                   onPressed: () {
@@ -95,8 +107,8 @@ class _MyAppState extends State<MyApp> {
 
 Future<(String, String)> copyModelFromAssets() async {
   final directory = await getApplicationSupportDirectory();
-  final modelPath = join(directory.path, 'en_US-hfc_female-medium.onnx');
-  final configPath = join(directory.path, 'en_US-hfc_female-medium.onnx.json');
+  final modelPath = join(directory.path, 'en_US-lessac-medium.onnx');
+  final configPath = join(directory.path, 'en_US-lessac-medium.onnx.json');
 
   final exists = await File(modelPath).exists();
 
@@ -104,9 +116,7 @@ Future<(String, String)> copyModelFromAssets() async {
     return (modelPath, configPath);
   }
 
-  final modelData = await rootBundle.load(
-    'assets/en_US-hfc_female-medium.onnx',
-  );
+  final modelData = await rootBundle.load('assets/en_US-lessac-medium.onnx');
   List<int> bytes = modelData.buffer.asUint8List(
     modelData.offsetInBytes,
     modelData.lengthInBytes,
@@ -115,7 +125,7 @@ Future<(String, String)> copyModelFromAssets() async {
   await File(modelPath).writeAsBytes(bytes, flush: true);
 
   final configData = await rootBundle.load(
-    'assets/en_US-hfc_female-medium.onnx.json',
+    'assets/en_US-lessac-medium.onnx.json',
   );
   bytes = configData.buffer.asUint8List(
     configData.offsetInBytes,

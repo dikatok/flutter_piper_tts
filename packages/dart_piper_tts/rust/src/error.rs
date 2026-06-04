@@ -49,4 +49,10 @@ impl From<ndarray::ShapeError> for TTSError {
     }
 }
 
-pub type TTSResult<T> = Result<T, TTSError>;
+impl From<cmudict_fast::Error> for TTSError {
+    fn from(e: cmudict_fast::Error) -> Self {
+        TTSError {
+            message: e.to_string(),
+        }
+    }
+}

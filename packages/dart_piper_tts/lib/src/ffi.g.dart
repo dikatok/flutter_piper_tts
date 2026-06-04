@@ -9,13 +9,11 @@ import 'dart:ffi' as ffi;
 
 @ffi.Native<
   FFIInitResponse Function(
-    ffi.Pointer<ffi.Char>,
     ffi.Pointer<ffi.NativeFunction<ffi.Void Function(ffi.Int64 port)>>,
     ffi.Bool,
   )
 >()
 external FFIInitResponse init(
-  ffi.Pointer<ffi.Char> phonemizer_model_path,
   ffi.Pointer<ffi.NativeFunction<ffi.Void Function(ffi.Int64 port)>>
   completion_cb,
   bool is_debug,
@@ -38,6 +36,7 @@ external FFICreateInstanceResponse create_instance(
     ffi.Pointer<ffi.Char>,
     ffi.Bool,
     ffi.Int64,
+    ffi.Pointer<ffi.Char>,
   )
 >()
 external FFISpeakResponse speak(
@@ -45,6 +44,7 @@ external FFISpeakResponse speak(
   ffi.Pointer<ffi.Char> text,
   bool is_phonemes,
   int port,
+  ffi.Pointer<ffi.Char> phonemization_strategy,
 );
 
 @ffi.Native<FFIPauseResponse Function(ffi.Pointer<ffi.Void>)>()

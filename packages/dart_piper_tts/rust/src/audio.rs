@@ -1,5 +1,5 @@
 use std::sync::{
-    Arc,
+    Arc, Mutex, OnceLock, RwLock,
     atomic::{AtomicBool, AtomicU8, Ordering},
     mpsc,
 };
@@ -11,41 +11,13 @@ use ringbuf::{
 };
 use tinyaudio::{OutputDeviceParameters, run_output_device};
 
-use crate::COMPLETION_CB;
+static AUDIO_PLAYER: OnceLock<Mutex<AudioPlayer>> = OnceLock::new();
+
+pub type DartPort = i64;
+pub type CompletionCallback = unsafe extern "C" fn(port: DartPort);
+static AUDIO_COMPLETION_CB: RwLock<Option<Mutex<CompletionCallback>>> = RwLock::new(None);
 
 const SAMPLE_RATE: u32 = 22050;
-
-#[repr(u8)]
-pub(crate) enum AudioPlayerCommand {
-    Play = 1,
-    Pause = 2,
-}
-
-pub struct AudioPlayerConfig {
-    pub sample_rate: u32,
-    pub buffer_duration_secs: u32,
-}
-
-impl Default for AudioPlayerConfig {
-    fn default() -> Self {
-        Self {
-            sample_rate: SAMPLE_RATE,
-            buffer_duration_secs: 10,
-        }
-    }
-}
-
-impl AudioPlayerConfig {
-    pub fn ring_buffer_capacity(&self) -> usize {
-        (self.buffer_duration_secs * self.sample_rate) as usize
-    }
-}
-
-#[derive(Copy, Clone)]
-enum AudioSlot {
-    Sample(f32),
-    Complete(i64), // dart port, -1 = no notification needed
-}
 
 pub(crate) struct AudioPlayer {
     ring_buffer: HeapProd<AudioSlot>,
@@ -53,14 +25,59 @@ pub(crate) struct AudioPlayer {
     drain: Arc<AtomicBool>,
 }
 
-impl Default for AudioPlayer {
-    fn default() -> Self {
-        Self::new(AudioPlayerConfig::default())
-    }
-}
-
 impl AudioPlayer {
-    pub(crate) fn new(config: AudioPlayerConfig) -> Self {
+    pub(crate) fn init(config: AudioPlayerConfig) {
+        let mut cb_guard = AUDIO_COMPLETION_CB.write().unwrap();
+        *cb_guard = Some(Mutex::new(config.completion_callback));
+        AUDIO_PLAYER.get_or_init(|| Mutex::new(AudioPlayer::init_internal(config)));
+    }
+
+    pub(crate) fn play(samples: &[f32]) {
+        AUDIO_PLAYER
+            .get()
+            .expect("audio player not initialized")
+            .lock()
+            .unwrap()
+            .play_internal(&samples);
+    }
+
+    pub(crate) fn mark_end_of_speech(dart_port: i64) {
+        AUDIO_PLAYER
+            .get()
+            .expect("audio player not initialized")
+            .lock()
+            .unwrap()
+            .mark_end_of_speech_internal(dart_port);
+    }
+
+    pub(crate) fn resume() {
+        AUDIO_PLAYER
+            .get()
+            .expect("audio player not initialized")
+            .lock()
+            .unwrap()
+            .resume_internal();
+    }
+
+    pub(crate) fn pause() {
+        AUDIO_PLAYER
+            .get()
+            .expect("audio player not initialized")
+            .lock()
+            .unwrap()
+            .pause_internal();
+    }
+
+    pub(crate) fn stop() {
+        AUDIO_PLAYER
+            .get()
+            .expect("audio player not initialized")
+            .lock()
+            .unwrap()
+            .stop_internal();
+    }
+
+    fn init_internal(config: AudioPlayerConfig) -> Self {
         let ring_buffer = HeapRb::<AudioSlot>::new(config.ring_buffer_capacity());
         let (producer, mut consumer) = ring_buffer.split();
 
@@ -131,7 +148,7 @@ impl AudioPlayer {
             while let Ok(port) = completion_rx.recv() {
                 if port != -1 {
                     debug!("calling completion callback on port: {}", port);
-                    let cb_guard = COMPLETION_CB.read().unwrap();
+                    let cb_guard = AUDIO_COMPLETION_CB.read().unwrap();
                     if let Some(ref mutex) = *cb_guard {
                         let cb = mutex.lock().unwrap();
                         unsafe {
@@ -151,7 +168,7 @@ impl AudioPlayer {
         }
     }
 
-    pub fn play(&mut self, samples: &[f32]) {
+    fn play_internal(&mut self, samples: &[f32]) {
         self.command
             .store(AudioPlayerCommand::Play as u8, Ordering::Relaxed);
 
@@ -170,7 +187,7 @@ impl AudioPlayer {
         }
     }
 
-    pub fn mark_end_of_speech(&mut self, dart_port: i64) {
+    fn mark_end_of_speech_internal(&mut self, dart_port: i64) {
         loop {
             if self
                 .ring_buffer
@@ -183,19 +200,57 @@ impl AudioPlayer {
         }
     }
 
-    pub fn resume(&self) {
+    fn resume_internal(&self) {
         self.command
             .store(AudioPlayerCommand::Play as u8, Ordering::Relaxed);
     }
 
-    pub fn pause(&self) {
+    fn pause_internal(&self) {
         self.command
             .store(AudioPlayerCommand::Pause as u8, Ordering::Relaxed);
     }
 
-    pub fn stop(&mut self) {
+    fn stop_internal(&mut self) {
         self.command
             .store(AudioPlayerCommand::Pause as u8, Ordering::Relaxed);
         self.drain.store(true, Ordering::Relaxed);
     }
+}
+
+#[repr(u8)]
+pub(crate) enum AudioPlayerCommand {
+    Play = 1,
+    Pause = 2,
+}
+
+pub struct AudioPlayerConfig {
+    sample_rate: u32,
+    buffer_duration_secs: u32,
+    completion_callback: CompletionCallback,
+}
+
+impl AudioPlayerConfig {
+    pub(crate) fn new(
+        sample_rate: Option<u32>,
+        buffer_duration_secs: Option<u32>,
+        completion_callback: CompletionCallback,
+    ) -> Self {
+        Self {
+            sample_rate: sample_rate.unwrap_or(SAMPLE_RATE),
+            buffer_duration_secs: buffer_duration_secs.unwrap_or(10),
+            completion_callback,
+        }
+    }
+}
+
+impl AudioPlayerConfig {
+    pub fn ring_buffer_capacity(&self) -> usize {
+        (self.buffer_duration_secs * self.sample_rate) as usize
+    }
+}
+
+#[derive(Copy, Clone)]
+enum AudioSlot {
+    Sample(f32),
+    Complete(i64), // dart port, -1 = no notification needed
 }

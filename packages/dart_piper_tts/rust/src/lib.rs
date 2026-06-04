@@ -1,48 +1,33 @@
 use std::{
     ffi::{CString, c_char, c_void},
     path::Path,
-    sync::{Mutex, OnceLock, RwLock},
+    str::FromStr,
 };
 
 use crate::{
-    audio::AudioPlayer, helpers::c_char_to_str, instance::Instance, logging::init_logger,
-    phonemizer::Phonemizer,
+    audio::{AudioPlayer, AudioPlayerConfig, CompletionCallback, DartPort},
+    helpers::c_char_to_str,
+    instance::Instance,
+    logging::init_logger,
+    phonemizer::phonemizer::{PhonemizationStrategy, Phonemizer},
 };
 
-pub mod audio;
-pub mod config;
-pub mod error;
-pub mod helpers;
-pub mod inference;
-pub mod instance;
-pub mod logging;
-pub mod phonemizer;
-pub mod tokenizer;
-
-static AUDIO_PLAYER: OnceLock<Mutex<AudioPlayer>> = OnceLock::new();
-
-pub type DartPort = i64;
-pub type CompletionCallback = unsafe extern "C" fn(port: DartPort);
-static COMPLETION_CB: RwLock<Option<Mutex<CompletionCallback>>> = RwLock::new(None);
-
-static PHONEMIZER_SESSION: OnceLock<Mutex<Phonemizer>> = OnceLock::new();
+pub(crate) mod audio;
+pub(crate) mod config;
+pub(crate) mod error;
+pub(crate) mod helpers;
+pub(crate) mod inference;
+pub(crate) mod instance;
+pub(crate) mod logging;
+pub(crate) mod phonemizer;
 
 #[unsafe(no_mangle)]
-pub extern "C" fn init(
-    phonemizer_model_path: *const c_char,
-    completion_cb: CompletionCallback,
-    is_debug: bool,
-) -> FFIInitResponse {
+pub extern "C" fn init(completion_cb: CompletionCallback, is_debug: bool) -> FFIInitResponse {
     init_logger(is_debug);
 
-    let mut cb_guard = COMPLETION_CB.write().unwrap();
-    *cb_guard = Some(Mutex::new(completion_cb));
+    AudioPlayer::init(AudioPlayerConfig::new(None, None, completion_cb));
 
-    PHONEMIZER_SESSION.get_or_init(|| {
-        Mutex::new(Phonemizer::load(Path::new(c_char_to_str(phonemizer_model_path))).unwrap())
-    });
-
-    AUDIO_PLAYER.get_or_init(|| Mutex::new(AudioPlayer::default()));
+    Phonemizer::init();
 
     FFIInitResponse {
         error_message: std::ptr::null_mut(),
@@ -78,9 +63,15 @@ pub extern "C" fn speak(
     text: *const c_char,
     is_phonemes: bool,
     port: DartPort,
+    phonemization_strategy: *const c_char,
 ) -> FFISpeakResponse {
     let instance = unsafe { &mut *(instance_ptr as *mut Instance) };
-    match instance.speak(c_char_to_str(text), is_phonemes, port.clamp(-1, i64::MAX)) {
+    match instance.speak(
+        c_char_to_str(text),
+        is_phonemes,
+        port.clamp(-1, i64::MAX),
+        PhonemizationStrategy::from_str(c_char_to_str(phonemization_strategy)).unwrap(),
+    ) {
         Ok(_) => FFISpeakResponse {
             error_message: std::ptr::null_mut(),
         },

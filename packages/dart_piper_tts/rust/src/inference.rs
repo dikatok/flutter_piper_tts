@@ -5,11 +5,11 @@ use ort::session::Session;
 use ort::value::Tensor;
 
 use crate::config::ModelConfig;
-use crate::error::{TTSError, TTSResult};
+use crate::error::TTSError;
 
-pub const BOS: char = '^';
-pub const EOS: char = '$';
-pub const PAD: char = '_';
+const BOS: char = '^';
+const EOS: char = '$';
+const PAD: char = '_';
 
 fn phonemes_to_ids(config: &ModelConfig, phonemes: &str) -> Vec<i64> {
     let map = &config.phoneme_id_map;
@@ -33,7 +33,7 @@ pub(crate) fn infer(
     session: &mut Session,
     config: &ModelConfig,
     phonemes: &str,
-) -> TTSResult<Vec<f32>> {
+) -> Result<Vec<f32>, TTSError> {
     let ids = phonemes_to_ids(config, phonemes);
     let input_len = ids.len();
     let input = Array2::<i64>::from_shape_vec((1, input_len), ids)?;

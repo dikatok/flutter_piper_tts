@@ -8,10 +8,11 @@ use log::{debug, error};
 use ort::session::builder::SessionBuilder;
 
 use crate::{
-    AUDIO_PLAYER, PHONEMIZER_SESSION,
+    audio::AudioPlayer,
     config::ModelConfig,
-    error::{TTSError, TTSResult},
+    error::TTSError,
     inference::infer,
+    phonemizer::phonemizer::{PhonemizationStrategy, Phonemizer},
 };
 
 enum SpeechTask {
@@ -19,6 +20,7 @@ enum SpeechTask {
         text: String,
         dart_port: i64,
         is_phonemes: bool,
+        phonemization_strategy: PhonemizationStrategy,
     },
     Resume,
     Pause,
@@ -33,7 +35,7 @@ unsafe impl Send for Instance {}
 unsafe impl Sync for Instance {}
 
 impl Instance {
-    pub(crate) fn new(model_path: &Path, config_path: &Path) -> TTSResult<Self> {
+    pub(crate) fn new(model_path: &Path, config_path: &Path) -> Result<Self, TTSError> {
         let config_file = File::open(config_path)?;
         let config: ModelConfig = serde_json::from_reader(config_file)?;
 
@@ -62,22 +64,17 @@ impl Instance {
                         text,
                         dart_port,
                         is_phonemes,
+                        phonemization_strategy,
                     } => {
                         debug!("play (is_phonemes: {}): {}", is_phonemes, text);
 
                         let phonemes = if is_phonemes {
                             text
                         } else {
-                            match PHONEMIZER_SESSION
-                                .get()
-                                .unwrap()
-                                .lock()
-                                .unwrap()
-                                .phonemize(&lang, &text, None, None)
-                            {
-                                Ok(c) => c,
+                            match Phonemizer::phonemize(&lang, &text, phonemization_strategy) {
+                                Ok(p) => p,
                                 Err(e) => {
-                                    error!("failed to phonemize: {}", e);
+                                    error!("phonemization failed: {}", e);
                                     continue;
                                 }
                             }
@@ -93,38 +90,12 @@ impl Instance {
                             }
                         };
 
-                        AUDIO_PLAYER
-                            .get()
-                            .expect("audio player not initialized")
-                            .lock()
-                            .unwrap()
-                            .play(&samples);
-
-                        AUDIO_PLAYER
-                            .get()
-                            .expect("audio player not initialized")
-                            .lock()
-                            .unwrap()
-                            .mark_end_of_speech(dart_port);
+                        AudioPlayer::play(&samples);
+                        AudioPlayer::mark_end_of_speech(dart_port);
                     }
-                    SpeechTask::Resume => AUDIO_PLAYER
-                        .get()
-                        .expect("audio player not initialized")
-                        .lock()
-                        .unwrap()
-                        .resume(),
-                    SpeechTask::Pause => AUDIO_PLAYER
-                        .get()
-                        .expect("audio player not initialized")
-                        .lock()
-                        .unwrap()
-                        .pause(),
-                    SpeechTask::Stop => AUDIO_PLAYER
-                        .get()
-                        .expect("audio player not initialized")
-                        .lock()
-                        .unwrap()
-                        .stop(),
+                    SpeechTask::Resume => AudioPlayer::resume(),
+                    SpeechTask::Pause => AudioPlayer::pause(),
+                    SpeechTask::Stop => AudioPlayer::stop(),
                 }
             }
 
@@ -134,12 +105,19 @@ impl Instance {
         Ok(Instance { speech_tasks: tx })
     }
 
-    pub(crate) fn speak(&mut self, text: &str, is_phonemes: bool, dart_port: i64) -> TTSResult<()> {
+    pub(crate) fn speak(
+        &mut self,
+        text: &str,
+        is_phonemes: bool,
+        dart_port: i64,
+        phonemization_strategy: PhonemizationStrategy,
+    ) -> Result<(), TTSError> {
         self.speech_tasks
             .send(SpeechTask::Play {
                 text: text.to_string(),
                 is_phonemes,
                 dart_port,
+                phonemization_strategy,
             })
             .map_err(|err| TTSError {
                 message: format!("failed to send play speech task: {}", err),

@@ -3,12 +3,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define BOS '^'
-
-#define EOS '$'
-
-#define PAD '_'
-
 typedef struct FFIInitResponse {
   char *error_message;
 } FFIInitResponse;
@@ -38,16 +32,15 @@ typedef struct FFIStopResponse {
   char *error_message;
 } FFIStopResponse;
 
-struct FFIInitResponse init(const char *phonemizer_model_path,
-                            CompletionCallback completion_cb,
-                            bool is_debug);
+struct FFIInitResponse init(CompletionCallback completion_cb, bool is_debug);
 
 struct FFICreateInstanceResponse create_instance(const char *model_path, const char *config_path);
 
 struct FFISpeakResponse speak(void *instance_ptr,
                               const char *text,
                               bool is_phonemes,
-                              DartPort port);
+                              DartPort port,
+                              const char *phonemization_strategy);
 
 struct FFIPauseResponse pause(void *instance_ptr);
 
