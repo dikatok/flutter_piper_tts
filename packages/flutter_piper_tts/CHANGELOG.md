@@ -1,3 +1,6 @@
+## 0.4.1
+- Re-add `android_libcpp_shared`
+
 ## 0.4.0
 - For now, flutter package only re-export dart package, to prevent breaking package users
 - In the future there might be improvements made specifically in the flutter realm
