@@ -10,9 +10,9 @@ Piper TTS models can be downloaded from https://huggingface.co/rhasspy/piper-voi
 
 Audio playback is done using https://crates.io/crates/tinyaudio.
 
-## Usage
+Dict based phonemization is supported via https://crates.io/crates/cmudict-fast and https://github.com/dmort27/epitran.rs.
 
-`Disclaimer: examples below are using the Flutter package`
+## Usage
 
 - Download Piper TTS model of your choice, make sure to also prepare the `*.onnx.json` file
 - Make them available to the device file system, eg. copying from your asset bundle to device application support directory
@@ -46,17 +46,47 @@ Audio playback is done using https://crates.io/crates/tinyaudio.
 ```
 - Initialize the package
 ```dart
-  await PiperTTS.init();
-  final tts = await PiperTTS.create(modelPath, configPath);
+  PiperTTS.init(kDebugMode: kDebugMode);
+  final tts = PiperTTS.create(modelPath: modelPath, configPath: configPath);
 ```
-- Call `speak`
+- Speak
 ```dart
-  await tts.speak("Hello world");
+  final text = "Hello world!";
+  // by default will wait for spoken word to be completed
+  tts.speak(text, waitForCompletion: true);
+  // fire and forget
+  tts.speak(text, waitForCompletion: false);
+  // phonemization based on g2p mbyt5 model for the whole text/sentence, can be slow for long sentence
+  tts.speak(text, phonemizerStrategy: PhonemizerStrategy.neuralSentence);
+  // same as above, but performed on every word instead, quite a bit faster, but will be missing the sentence context
+  tts.speak(text, phonemizerStrategy: PhonemizerStrategy.neuralWord);
+  // phonemization using dict based with cmudict for english and epitran for the rest, with fallback of using neural based for words not found in dict
+  tts.speak(text, phonemizerStrategy: PhonemizerStrategy.dictionaryWithNeuralFallback);
+  // same as above, but will omit any words not found
+  tts.speak(text, phonemizerStrategy: PhonemizerStrategy.dictionaryWithOmitUnknown);
+
+```
+- Pause
+```dart
   tts.pause();
+```
+- Resume
+```dart
   tts.resume();
-  await tts.speak("Bye", waitForCompletion: false)
+```
+- Stop
+```dart
   tts.stop();
 ```
+- Dispose (should not be required, but just in case)
+```dart
+  tts.dispose();
+```
+
+## Notes
+- Currently does not support number and any fancy symbols, for workaround you can put "forty two" instead of "42" for example.
+- Some phoneme generation can be incorrect especially on heteronym words like `wind` and `live`.
+
 
 ## Supported platforms
 - Android
@@ -65,5 +95,7 @@ Audio playback is done using https://crates.io/crates/tinyaudio.
 - Windows and Linux (not tested)
 
 ## TODO
-- Better support for subsentence separator like comma
 - Adjust speed (with change in pitch/not)
+- Number support
+- Check possibility of blocking ui thread (jank)
+- Add phoneme override map
