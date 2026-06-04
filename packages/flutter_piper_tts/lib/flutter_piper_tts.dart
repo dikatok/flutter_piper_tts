@@ -9,7 +9,7 @@ class PiperTTS {
   PiperTTS._(this._tts);
 
   static Future<void> init() async {
-    piper_dart.PiperTTS.init((kDebugMode: kDebugMode));
+    piper_dart.PiperTTS.init(kDebugMode: kDebugMode);
   }
 
   static Future<PiperTTS> create({
@@ -17,10 +17,7 @@ class PiperTTS {
     required String configPath,
   }) async {
     return PiperTTS._(
-      piper_dart.PiperTTS.create((
-        configPath: configPath,
-        modelPath: modelPath,
-      )),
+      piper_dart.PiperTTS.create(configPath: configPath, modelPath: modelPath),
     );
   }
 

@@ -31,7 +31,7 @@ class PiperTTS implements Finalizable {
     _receivePort!.sendPort.send(port);
   }
 
-  static void init(({bool kDebugMode}) args) {
+  static void init({bool kDebugMode = true}) {
     _receivePort ??= RawReceivePort((dynamic port) {
       _completionStreamController.add(port);
     });
@@ -42,7 +42,7 @@ class PiperTTS implements Finalizable {
 
     final result = g.init(
       _nativeCompletionCallback!.nativeFunction,
-      args.kDebugMode,
+      kDebugMode,
     );
     final g.FFIInitResponse(:error_message) = result;
     if (error_message.isNotEmpty) {
@@ -50,9 +50,12 @@ class PiperTTS implements Finalizable {
     }
   }
 
-  static PiperTTS create(({String modelPath, String configPath}) args) {
-    final modelPathPointer = args.modelPath.toNativeUtf8();
-    final configPathPointer = args.configPath.toNativeUtf8();
+  static PiperTTS create({
+    required String modelPath,
+    required String configPath,
+  }) {
+    final modelPathPointer = modelPath.toNativeUtf8();
+    final configPathPointer = configPath.toNativeUtf8();
 
     try {
       final result = g.create_instance(
@@ -130,7 +133,7 @@ class PiperTTS implements Finalizable {
     if (waitForCompletion) return playbackComplete;
   }
 
-  void pause([dynamic _]) {
+  void pause() {
     final result = g.pause(_instancePtr);
     final g.FFIPauseResponse(:error_message) = result;
     if (error_message.isNotEmpty) {
@@ -138,7 +141,7 @@ class PiperTTS implements Finalizable {
     }
   }
 
-  void resume([dynamic _]) {
+  void resume() {
     final result = g.resume(_instancePtr);
     final g.FFIResumeResponse(:error_message) = result;
     if (error_message.isNotEmpty) {
@@ -146,7 +149,7 @@ class PiperTTS implements Finalizable {
     }
   }
 
-  void stop([dynamic _]) {
+  void stop() {
     final result = g.stop(_instancePtr);
     final g.FFIStopResponse(:error_message) = result;
     if (error_message.isNotEmpty) {
