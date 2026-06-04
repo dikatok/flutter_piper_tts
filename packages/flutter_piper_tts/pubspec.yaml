@@ -14,6 +14,7 @@ dependencies:
   flutter:
     sdk: flutter
   dart_piper_tts: ^0.2.0
+  android_libcpp_shared: ^0.1.1
 
 dev_dependencies:
   flutter_test:
