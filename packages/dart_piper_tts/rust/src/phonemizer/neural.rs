@@ -44,6 +44,12 @@ impl NeuralPhonemizer {
 
         let mut phonemes: Vec<String> = Vec::new();
 
+        let mut guard = SHARED
+            .get()
+            .ok_or_else(|| TTSError::from("Neural phonemizer not initialized".to_string()))?
+            .lock()
+            .unwrap();
+
         for chunk in chunks {
             debug!("phonemize chunk: {}", chunk);
             let input_ids = encode(lang, chunk.as_str());
@@ -61,11 +67,9 @@ impl NeuralPhonemizer {
                     decoder_ids.clone(),
                 )?)?;
 
-                let mut guard = SHARED.get().unwrap().lock().unwrap();
-
                 let outputs = guard.session.run(ort::inputs![
-                    "input_ids"         => input_ids_arr.clone(),
-                    "attention_mask"    => attention_mask_arr.clone(),
+                    "input_ids"         => input_ids_arr.view(),
+                    "attention_mask"    => attention_mask_arr.view(),
                     "decoder_input_ids" => decoder_ids_arr
                 ])?;
 
@@ -136,6 +140,10 @@ fn encode(lang: &str, text: &str) -> Vec<i64> {
 
 /// Decode ByT5 token IDs back to a UTF-8 string.
 fn decode(token_ids: &[i64]) -> String {
-    let bytes: Vec<u8> = token_ids.iter().map(|&t| (t - 3) as u8).collect();
+    let bytes: Vec<u8> = token_ids
+        .iter()
+        .filter(|&&t| t >= 3)
+        .map(|&t| (t - 3) as u8)
+        .collect();
     String::from_utf8_lossy(&bytes).into_owned()
 }

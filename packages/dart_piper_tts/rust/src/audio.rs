@@ -182,7 +182,7 @@ impl AudioPlayer {
             remaining = &remaining[pushed..];
 
             if !remaining.is_empty() {
-                std::thread::yield_now();
+                std::hint::spin_loop();
             }
         }
     }

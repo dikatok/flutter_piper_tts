@@ -14,7 +14,7 @@ serde_json = "1.0.149"
 tinyaudio = "2.0.0"
 unaccent = "0.1.1"
 unicode-segmentation = "1.13.2"
-rsepitran = { git = "https://github.com/dmort27/epitran.rs.git", package = "rsepitran" }
+rsepitran = { git = "https://github.com/dmort27/epitran.rs.git", package = "rsepitran", rev = "bbf50d2802953e0cb5fefc4328e07e326d1a49f4" }
 cmudict-fast = "0.8.0"
 regex = "1.12.3"
 

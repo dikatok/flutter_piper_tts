@@ -1030,7 +1030,7 @@ dependencies = [
 [[package]]
 name = "parserule"
 version = "0.1.0"
-source = "git+https://github.com/dmort27/epitran.rs.git#bbf50d2802953e0cb5fefc4328e07e326d1a49f4"
+source = "git+https://github.com/dmort27/epitran.rs.git?rev=bbf50d2802953e0cb5fefc4328e07e326d1a49f4#bbf50d2802953e0cb5fefc4328e07e326d1a49f4"
 dependencies = [
  "anyhow",
  "clap",
@@ -1277,7 +1277,7 @@ dependencies = [
 [[package]]
 name = "rsepitran"
 version = "0.1.0"
-source = "git+https://github.com/dmort27/epitran.rs.git#bbf50d2802953e0cb5fefc4328e07e326d1a49f4"
+source = "git+https://github.com/dmort27/epitran.rs.git?rev=bbf50d2802953e0cb5fefc4328e07e326d1a49f4#bbf50d2802953e0cb5fefc4328e07e326d1a49f4"
 dependencies = [
  "anyhow",
  "clap",

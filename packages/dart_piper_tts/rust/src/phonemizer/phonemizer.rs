@@ -1,4 +1,4 @@
-use std::{collections::HashMap, str::FromStr};
+use std::{collections::HashMap, str::FromStr, sync::OnceLock};
 
 use regex::Regex;
 use unaccent::unaccent;
@@ -119,14 +119,18 @@ impl Phonemizer {
         }
     }
 
-    fn tokenize(text: &str) -> Vec<TextToken> {
+    fn tokenizer_regex() -> &'static Regex {
         let patterns = vec![
             r"(?P<word>[\p{L}\p{M}]+)",
             r"(?P<single_sym>[^\p{L}\p{M}\d\s])",
             r"(?P<whitespace>\s+)",
         ];
+        static RE: OnceLock<Regex> = OnceLock::new();
+        RE.get_or_init(|| Regex::new(&patterns.join("|")).unwrap())
+    }
 
-        let tokenizer_regex = Regex::new(&patterns.join("|")).unwrap();
+    fn tokenize(text: &str) -> Vec<TextToken> {
+        let tokenizer_regex = Phonemizer::tokenizer_regex();
 
         let mut tokens = Vec::new();
         let mut last_idx = 0;

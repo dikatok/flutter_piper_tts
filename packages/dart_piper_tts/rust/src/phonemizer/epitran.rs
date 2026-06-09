@@ -99,7 +99,7 @@ pub enum EpitranLang {
     UigArab, // Uyghur
     UkrCyrl, // Ukrainian
     UrdArab, // Urdu
-    Uzblatn, // Uzbek
+    UzbLatn, // Uzbek
     VieLatn, // Vietnamese
     YorLatn, // Yoruba
     ZulLatn, // Zulu
@@ -155,7 +155,7 @@ impl EpitranLang {
             Self::UigArab => "uig_Arab",
             Self::UkrCyrl => "ukr_Cyrl",
             Self::UrdArab => "urd_Arab",
-            Self::Uzblatn => "uzb_Latn",
+            Self::UzbLatn => "uzb_Latn",
             Self::VieLatn => "vie_Latn",
             Self::YorLatn => "yor_Latn",
             Self::ZulLatn => "zul_Latn",
@@ -219,7 +219,7 @@ impl FromStr for EpitranLang {
             "ug" => Ok(Self::UigArab),
             "uk" => Ok(Self::UkrCyrl),
             "ur" => Ok(Self::UrdArab),
-            "uz" => Ok(Self::Uzblatn),
+            "uz" => Ok(Self::UzbLatn),
             "vi" => Ok(Self::VieLatn),
             "yo" => Ok(Self::YorLatn),
             "zu" => Ok(Self::ZulLatn),

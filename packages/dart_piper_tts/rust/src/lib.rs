@@ -6,53 +6,53 @@ use std::{
 
 use crate::{
     audio::{AudioPlayer, AudioPlayerConfig, CompletionCallback, DartPort},
+    error::TTSError,
+    ffi_helpers::c_char_to_str,
+    ffi_response::FFIResponse,
     instance::Instance,
     logging::init_logger,
     phonemizer::phonemizer::{PhonemizationStrategy, Phonemizer},
 };
 
-pub(crate) mod audio;
-pub(crate) mod config;
-pub(crate) mod error;
-pub(crate) mod inference;
-pub(crate) mod instance;
-pub(crate) mod logging;
-pub(crate) mod phonemizer;
+pub mod audio;
+pub mod config;
+pub mod error;
+pub mod ffi_helpers;
+pub mod ffi_response;
+pub mod inference;
+pub mod instance;
+pub mod logging;
+pub mod phonemizer;
 
 #[unsafe(no_mangle)]
-pub extern "C" fn init(completion_cb: CompletionCallback, is_debug: bool) -> FFIInitResponse {
+pub extern "C" fn init(completion_cb: CompletionCallback, is_debug: bool) -> FFIResponse {
     init_logger(is_debug);
 
     AudioPlayer::init(AudioPlayerConfig::new(None, None, completion_cb));
 
     Phonemizer::init();
 
-    FFIInitResponse {
-        error_message: std::ptr::null_mut(),
-    }
+    FFIResponse::ok(std::ptr::null_mut())
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn create_instance(
     model_path: *const c_char,
     config_path: *const c_char,
-) -> FFICreateInstanceResponse {
-    let instance = match Instance::new(
-        Path::new(c_char_to_str(model_path)),
-        Path::new(c_char_to_str(config_path)),
-    ) {
-        Ok(instance) => instance,
-        Err(err) => {
-            return FFICreateInstanceResponse {
-                instance: std::ptr::null_mut(),
-                error_message: CString::new(err.message).unwrap().into_raw(),
-            };
-        }
+) -> FFIResponse {
+    let model_path = match c_char_to_str(model_path) {
+        Ok(model_path) => model_path,
+        Err(err) => return FFIResponse::err(err),
     };
-    FFICreateInstanceResponse {
-        instance: Box::into_raw(Box::new(instance)) as *mut c_void,
-        error_message: std::ptr::null_mut(),
-    }
+    let config_path = match c_char_to_str(config_path) {
+        Ok(config_path) => config_path,
+        Err(err) => return FFIResponse::err(err),
+    };
+    let instance = match Instance::new(Path::new(model_path), Path::new(config_path)) {
+        Ok(instance) => instance,
+        Err(err) => return FFIResponse::err(err),
+    };
+    FFIResponse::ok(Box::into_raw(Box::new(instance)) as *mut c_void)
 }
 
 #[unsafe(no_mangle)]
@@ -62,55 +62,51 @@ pub extern "C" fn speak(
     is_phonemes: bool,
     port: DartPort,
     phonemization_strategy: *const c_char,
-) -> FFISpeakResponse {
+) -> FFIResponse {
+    let text = match c_char_to_str(text) {
+        Ok(text) => text,
+        Err(err) => return FFIResponse::err(err),
+    };
+    let phonemization_strategy = match c_char_to_str(phonemization_strategy) {
+        Ok(phonemization_strategy) => phonemization_strategy,
+        Err(err) => return FFIResponse::err(err),
+    };
     let instance = unsafe { &mut *(instance_ptr as *mut Instance) };
     match instance.speak(
-        c_char_to_str(text),
+        text,
         is_phonemes,
         port.clamp(-1, i64::MAX),
-        PhonemizationStrategy::from_str(c_char_to_str(phonemization_strategy)).unwrap(),
+        PhonemizationStrategy::from_str(phonemization_strategy).unwrap(),
     ) {
-        Ok(_) => FFISpeakResponse {
-            error_message: std::ptr::null_mut(),
-        },
-        Err(err) => FFISpeakResponse {
-            error_message: CString::new(err.message).unwrap().into_raw(),
-        },
+        Ok(_) => FFIResponse::ok(std::ptr::null_mut()),
+        Err(err) => FFIResponse::err(err),
     }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn pause(instance_ptr: *mut c_void) -> FFIPauseResponse {
+pub extern "C" fn pause(instance_ptr: *mut c_void) -> FFIResponse {
     let instance = unsafe { &mut *(instance_ptr as *mut Instance) };
     instance.pause();
-    FFIPauseResponse {
-        error_message: std::ptr::null_mut(),
-    }
+    FFIResponse::ok(std::ptr::null_mut())
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn resume(instance_ptr: *mut c_void) -> FFIResumeResponse {
+pub extern "C" fn resume(instance_ptr: *mut c_void) -> FFIResponse {
     let instance = unsafe { &mut *(instance_ptr as *mut Instance) };
     instance.resume();
-    FFIResumeResponse {
-        error_message: std::ptr::null_mut(),
-    }
+    FFIResponse::ok(std::ptr::null_mut())
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn stop(instance_ptr: *mut c_void) -> FFIStopResponse {
+pub extern "C" fn stop(instance_ptr: *mut c_void) -> FFIResponse {
     let instance = unsafe { &mut *(instance_ptr as *mut Instance) };
     instance.stop();
-    FFIStopResponse {
-        error_message: std::ptr::null_mut(),
-    }
+    FFIResponse::ok(std::ptr::null_mut())
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn dispose(instance_ptr: *mut c_void) {
     if !instance_ptr.is_null() {
-        // Taking ownership back means Rust will automatically
-        // drop it when this block ends.
         let _ = unsafe { Box::from_raw(instance_ptr as *mut Instance) };
     }
 }
@@ -122,50 +118,4 @@ pub extern "C" fn free_string(s: *mut c_char) {
             drop(CString::from_raw(s));
         }
     }
-}
-
-#[repr(C)]
-pub struct FFIInitResponse {
-    pub error_message: *mut c_char,
-}
-
-#[repr(C)]
-pub struct FFICreateInstanceResponse {
-    pub instance: *mut c_void,
-    pub error_message: *mut c_char,
-}
-
-#[repr(C)]
-pub struct FFISpeakResponse {
-    pub error_message: *mut c_char,
-}
-
-#[repr(C)]
-pub struct FFIPauseResponse {
-    pub error_message: *mut c_char,
-}
-
-#[repr(C)]
-pub struct FFIResumeResponse {
-    pub error_message: *mut c_char,
-}
-
-#[repr(C)]
-pub struct FFIStopResponse {
-    pub error_message: *mut c_char,
-}
-
-#[repr(C)]
-pub struct FFIDisposeResponse {
-    pub error_message: *mut c_char,
-}
-
-fn c_char_to_str(ptr: *const c_char) -> &'static str {
-    // 1. Safety check for null
-    if ptr.is_null() { /* handle error */ }
-
-    // 2. Convert raw pointer to CStr
-    let c_str = unsafe { CStr::from_ptr(ptr) };
-
-    c_str.to_str().unwrap()
 }

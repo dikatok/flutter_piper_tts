@@ -3,50 +3,30 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-typedef struct FFIInitResponse {
+typedef struct FFIResponse {
+  void *ptr;
   char *error_message;
-} FFIInitResponse;
+} FFIResponse;
 
 typedef int64_t DartPort;
 
 typedef void (*CompletionCallback)(DartPort port);
 
-typedef struct FFICreateInstanceResponse {
-  void *instance;
-  char *error_message;
-} FFICreateInstanceResponse;
+struct FFIResponse init(CompletionCallback completion_cb, bool is_debug);
 
-typedef struct FFISpeakResponse {
-  char *error_message;
-} FFISpeakResponse;
+struct FFIResponse create_instance(const char *model_path, const char *config_path);
 
-typedef struct FFIPauseResponse {
-  char *error_message;
-} FFIPauseResponse;
+struct FFIResponse speak(void *instance_ptr,
+                         const char *text,
+                         bool is_phonemes,
+                         DartPort port,
+                         const char *phonemization_strategy);
 
-typedef struct FFIResumeResponse {
-  char *error_message;
-} FFIResumeResponse;
+struct FFIResponse pause(void *instance_ptr);
 
-typedef struct FFIStopResponse {
-  char *error_message;
-} FFIStopResponse;
+struct FFIResponse resume(void *instance_ptr);
 
-struct FFIInitResponse init(CompletionCallback completion_cb, bool is_debug);
-
-struct FFICreateInstanceResponse create_instance(const char *model_path, const char *config_path);
-
-struct FFISpeakResponse speak(void *instance_ptr,
-                              const char *text,
-                              bool is_phonemes,
-                              DartPort port,
-                              const char *phonemization_strategy);
-
-struct FFIPauseResponse pause(void *instance_ptr);
-
-struct FFIResumeResponse resume(void *instance_ptr);
-
-struct FFIStopResponse stop(void *instance_ptr);
+struct FFIResponse stop(void *instance_ptr);
 
 void dispose(void *instance_ptr);
 

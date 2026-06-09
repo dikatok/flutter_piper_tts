@@ -63,11 +63,11 @@ pub(crate) fn infer(
     } else {
         session.run(ort::inputs![input_t, lengths_t, scales_t])
     }
-    .map_err(|e| TTSError::from(e))?;
+    .map_err(TTSError::from)?;
 
     let (_, audio) = outputs[0]
         .try_extract_tensor::<f32>()
-        .map_err(|e| TTSError::from(e))?;
+        .map_err(TTSError::from)?;
 
     Ok(audio.to_vec())
 }
