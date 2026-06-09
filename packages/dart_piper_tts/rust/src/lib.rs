@@ -115,6 +115,15 @@ pub extern "C" fn dispose(instance_ptr: *mut c_void) {
     }
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn free_string(s: *mut c_char) {
+    if !s.is_null() {
+        unsafe {
+            drop(CString::from_raw(s));
+        }
+    }
+}
+
 #[repr(C)]
 pub struct FFIInitResponse {
     pub error_message: *mut c_char,

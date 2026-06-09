@@ -59,6 +59,9 @@ external FFIStopResponse stop(ffi.Pointer<ffi.Void> instance_ptr);
 @ffi.Native<ffi.Void Function(ffi.Pointer<ffi.Void>)>()
 external void dispose(ffi.Pointer<ffi.Void> instance_ptr);
 
+@ffi.Native<ffi.Void Function(ffi.Pointer<ffi.Char>)>()
+external void free_string(ffi.Pointer<ffi.Char> s);
+
 final class FFIInitResponse extends ffi.Struct {
   external ffi.Pointer<ffi.Char> error_message;
 }

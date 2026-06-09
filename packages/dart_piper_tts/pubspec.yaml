@@ -32,13 +32,7 @@ ffigen:
       - rust/bindings.h
   functions:
     include:
-      - init
-      - create_instance
-      - speak
-      - pause
-      - resume
-      - stop
-      - dispose
+      - ".*"
   unnamed-enums:
     exclude:
       - ".*"

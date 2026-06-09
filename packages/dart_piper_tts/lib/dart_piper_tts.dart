@@ -45,9 +45,7 @@ class PiperTTS implements Finalizable {
       kDebugMode,
     );
     final g.FFIInitResponse(:error_message) = result;
-    if (error_message.isNotEmpty) {
-      throw Exception(error_message.toDartString());
-    }
+    _checkIfError(error_message);
   }
 
   static PiperTTS create({
@@ -63,9 +61,7 @@ class PiperTTS implements Finalizable {
         configPathPointer.cast<Char>(),
       );
       final g.FFICreateInstanceResponse(:instance, :error_message) = result;
-      if (error_message.isNotEmpty) {
-        throw Exception(error_message.toDartString());
-      }
+      _checkIfError(error_message);
       return PiperTTS._(instance);
     } finally {
       calloc.free(modelPathPointer);
@@ -93,9 +89,7 @@ class PiperTTS implements Finalizable {
         phonemizerStrategyPointer.cast<Char>(),
       );
       final g.FFISpeakResponse(:error_message) = result;
-      if (error_message.isNotEmpty) {
-        throw Exception(error_message.toDartString());
-      }
+      _checkIfError(error_message);
     } finally {
       calloc.free(textPointer);
       calloc.free(phonemizerStrategyPointer);
@@ -123,9 +117,7 @@ class PiperTTS implements Finalizable {
         phonemizerStrategyPointer.cast<Char>(),
       );
       final g.FFISpeakResponse(:error_message) = result;
-      if (error_message.isNotEmpty) {
-        throw Exception(error_message.toDartString());
-      }
+      _checkIfError(error_message);
     } finally {
       calloc.free(textPointer);
       calloc.free(phonemizerStrategyPointer);
@@ -136,25 +128,19 @@ class PiperTTS implements Finalizable {
   void pause() {
     final result = g.pause(_instancePtr);
     final g.FFIPauseResponse(:error_message) = result;
-    if (error_message.isNotEmpty) {
-      throw Exception(error_message.toDartString());
-    }
+    _checkIfError(error_message);
   }
 
   void resume() {
     final result = g.resume(_instancePtr);
     final g.FFIResumeResponse(:error_message) = result;
-    if (error_message.isNotEmpty) {
-      throw Exception(error_message.toDartString());
-    }
+    _checkIfError(error_message);
   }
 
   void stop() {
     final result = g.stop(_instancePtr);
     final g.FFIStopResponse(:error_message) = result;
-    if (error_message.isNotEmpty) {
-      throw Exception(error_message.toDartString());
-    }
+    _checkIfError(error_message);
   }
 
   void dispose() {
@@ -180,4 +166,12 @@ enum PhonemizerStrategy {
   final String native;
 
   const PhonemizerStrategy(this.native);
+}
+
+void _checkIfError(Pointer<Char> errorMessage) {
+  if (errorMessage.isNotEmpty) {
+    final message = errorMessage.toDartString();
+    g.free_string(errorMessage);
+    throw Exception(message);
+  }
 }

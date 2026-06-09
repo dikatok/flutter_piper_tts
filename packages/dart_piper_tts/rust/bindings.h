@@ -49,3 +49,5 @@ struct FFIResumeResponse resume(void *instance_ptr);
 struct FFIStopResponse stop(void *instance_ptr);
 
 void dispose(void *instance_ptr);
+
+void free_string(char *s);
