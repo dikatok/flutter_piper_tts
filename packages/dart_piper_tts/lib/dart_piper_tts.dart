@@ -52,21 +52,15 @@ class PiperTTS implements Finalizable {
     required String modelPath,
     required String configPath,
   }) {
-    final modelPathPointer = modelPath.toNativeUtf8();
-    final configPathPointer = configPath.toNativeUtf8();
-
-    try {
+    return using((arena) {
       final result = g.create_instance(
-        modelPathPointer.cast<Char>(),
-        configPathPointer.cast<Char>(),
+        modelPath.toNativeUtf8(allocator: arena).cast(),
+        configPath.toNativeUtf8(allocator: arena).cast(),
       );
       final g.FFICreateInstanceResponse(:instance, :error_message) = result;
       _checkIfError(error_message);
       return PiperTTS._(instance);
-    } finally {
-      calloc.free(modelPathPointer);
-      calloc.free(configPathPointer);
-    }
+    });
   }
 
   Future<void> speak(
@@ -74,55 +68,46 @@ class PiperTTS implements Finalizable {
     bool waitForCompletion = true,
     PhonemizerStrategy phonemizerStrategy = PhonemizerStrategy.neuralWord,
   }) async {
-    final textPointer = text.toNativeUtf8();
-    final phonemizerStrategyPointer = phonemizerStrategy.native.toNativeUtf8();
-    final id = _nextCompletionId++;
-    final playbackComplete = _completionStreamController.stream
-        .firstWhere((id_) => id_ == id)
-        .then((_) {});
-    try {
+    return using((arena) {
+      final id = _nextCompletionId++;
+      final playbackComplete = _completionStreamController.stream
+          .firstWhere((id_) => id_ == id)
+          .then((_) {});
       final result = g.speak(
         _instancePtr,
-        textPointer.cast<Char>(),
+        text.toNativeUtf8(allocator: arena).cast(),
         false,
         id,
-        phonemizerStrategyPointer.cast<Char>(),
+        phonemizerStrategy.native.toNativeUtf8(allocator: arena).cast(),
       );
       final g.FFISpeakResponse(:error_message) = result;
       _checkIfError(error_message);
-    } finally {
-      calloc.free(textPointer);
-      calloc.free(phonemizerStrategyPointer);
-    }
-    if (waitForCompletion) return playbackComplete;
+      if (waitForCompletion) return playbackComplete;
+    });
   }
 
   Future<void> speakFromPhonemes({
     required String phonemes,
     bool waitForCompletion = true,
-    PhonemizerStrategy phonemizerStrategy = PhonemizerStrategy.neuralWord,
   }) async {
-    final textPointer = phonemes.toNativeUtf8();
-    final phonemizerStrategyPointer = phonemizerStrategy.native.toNativeUtf8();
-    final id = _nextCompletionId++;
-    final playbackComplete = _completionStreamController.stream
-        .firstWhere((id_) => id_ == id)
-        .then((_) {});
-    try {
+    return using((arena) {
+      final id = _nextCompletionId++;
+      final playbackComplete = _completionStreamController.stream
+          .firstWhere((id_) => id_ == id)
+          .then((_) {});
       final result = g.speak(
         _instancePtr,
-        textPointer.cast<Char>(),
+        phonemes.toNativeUtf8(allocator: arena).cast(),
         true,
         id,
-        phonemizerStrategyPointer.cast<Char>(),
+        PhonemizerStrategy.neuralWord.native
+            .toNativeUtf8(allocator: arena)
+            .cast(),
       );
       final g.FFISpeakResponse(:error_message) = result;
       _checkIfError(error_message);
-    } finally {
-      calloc.free(textPointer);
-      calloc.free(phonemizerStrategyPointer);
-    }
-    if (waitForCompletion) return playbackComplete;
+      if (waitForCompletion) return playbackComplete;
+    });
   }
 
   void pause() {
