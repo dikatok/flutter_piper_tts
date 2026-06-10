@@ -8,7 +8,3 @@ workspace:
   - packages/flutter_piper_tts
   - packages/dart_piper_tts/example
   - packages/flutter_piper_tts/example
-melos:
-  ignore:
-    - packages/dart_piper_tts/example
-    - packages/flutter_piper_tts/example

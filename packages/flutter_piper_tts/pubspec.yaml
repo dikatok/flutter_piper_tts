@@ -13,7 +13,7 @@ resolution: workspace
 dependencies:
   flutter:
     sdk: flutter
-  dart_piper_tts: ^0.2.0
+  dart_piper_tts:
   android_libcpp_shared: ^0.1.1
 
 dev_dependencies:
