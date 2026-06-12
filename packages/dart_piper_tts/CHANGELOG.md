@@ -1,3 +1,6 @@
+## 0.2.1
+- Missing phonemizer model
+
 ## 0.2.0
 - use opaque pointers, so rust object will be released as well when the dart container class is disposed
 - use streamController for managing completion, preventing dangling completers

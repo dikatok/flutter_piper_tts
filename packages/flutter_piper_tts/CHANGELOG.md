@@ -1,3 +1,6 @@
+## 0.4.2
+- Missing phonemizer model
+
 ## 0.4.1
 - Re-add `android_libcpp_shared`
 
