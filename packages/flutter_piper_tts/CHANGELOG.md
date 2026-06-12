@@ -1,4 +1,7 @@
 ## 0.4.2
+- Re-add dart_piper_tts version since i am not using melos auto generation
+
+## 0.4.2
 - Missing phonemizer model
 
 ## 0.4.1
