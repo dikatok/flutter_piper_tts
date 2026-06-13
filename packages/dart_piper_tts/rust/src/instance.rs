@@ -66,8 +66,6 @@ impl Instance {
                         is_phonemes,
                         phonemization_strategy,
                     } => {
-                        debug!("play (is_phonemes: {}): {}", is_phonemes, text);
-
                         let phonemes = if is_phonemes {
                             text
                         } else {

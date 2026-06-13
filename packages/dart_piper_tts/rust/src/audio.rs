@@ -39,6 +39,7 @@ impl AudioPlayer {
     }
 
     pub(crate) fn play(samples: &[f32]) {
+        debug!("playing {} samples", samples.len());
         AUDIO_PLAYER
             .get()
             .expect("audio player not initialized")
@@ -48,6 +49,7 @@ impl AudioPlayer {
     }
 
     pub(crate) fn mark_end_of_speech(dart_port: i64) {
+        debug!("marking end of speech on port {}", dart_port);
         AUDIO_PLAYER
             .get()
             .expect("audio player not initialized")
@@ -59,18 +61,21 @@ impl AudioPlayer {
     // These three bypass the AUDIO_PLAYER mutex so they take effect
     // immediately, even while play_internal is spinning inside play().
     pub(crate) fn resume() {
+        debug!("resuming audio playback");
         if let Some(cmd) = AUDIO_COMMAND.get() {
             cmd.store(AudioPlayerCommand::Play as u8, Ordering::SeqCst);
         }
     }
 
     pub(crate) fn pause() {
+        debug!("pausing audio playback");
         if let Some(cmd) = AUDIO_COMMAND.get() {
             cmd.store(AudioPlayerCommand::Pause as u8, Ordering::SeqCst);
         }
     }
 
     pub(crate) fn stop() {
+        debug!("stopping audio playback");
         // Write command first so the callback sees Pause before drain=true.
         if let Some(cmd) = AUDIO_COMMAND.get() {
             cmd.store(AudioPlayerCommand::Pause as u8, Ordering::SeqCst);
