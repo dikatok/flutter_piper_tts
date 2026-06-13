@@ -13,6 +13,12 @@ use tinyaudio::{OutputDeviceParameters, run_output_device};
 
 static AUDIO_PLAYER: OnceLock<Mutex<AudioPlayer>> = OnceLock::new();
 
+// Clones of the Arc atomics stored outside the mutex so that
+// pause / stop / resume can take effect immediately without
+// waiting for play_internal to release the lock.
+static AUDIO_COMMAND: OnceLock<Arc<AtomicU8>> = OnceLock::new();
+static AUDIO_DRAIN: OnceLock<Arc<AtomicBool>> = OnceLock::new();
+
 pub type DartPort = i64;
 pub type CompletionCallback = unsafe extern "C" fn(port: DartPort);
 static AUDIO_COMPLETION_CB: RwLock<Option<Mutex<CompletionCallback>>> = RwLock::new(None);
@@ -38,7 +44,7 @@ impl AudioPlayer {
             .expect("audio player not initialized")
             .lock()
             .unwrap()
-            .play_internal(&samples);
+            .play_internal(samples);
     }
 
     pub(crate) fn mark_end_of_speech(dart_port: i64) {
@@ -50,31 +56,28 @@ impl AudioPlayer {
             .mark_end_of_speech_internal(dart_port);
     }
 
+    // These three bypass the AUDIO_PLAYER mutex so they take effect
+    // immediately, even while play_internal is spinning inside play().
     pub(crate) fn resume() {
-        AUDIO_PLAYER
-            .get()
-            .expect("audio player not initialized")
-            .lock()
-            .unwrap()
-            .resume_internal();
+        if let Some(cmd) = AUDIO_COMMAND.get() {
+            cmd.store(AudioPlayerCommand::Play as u8, Ordering::SeqCst);
+        }
     }
 
     pub(crate) fn pause() {
-        AUDIO_PLAYER
-            .get()
-            .expect("audio player not initialized")
-            .lock()
-            .unwrap()
-            .pause_internal();
+        if let Some(cmd) = AUDIO_COMMAND.get() {
+            cmd.store(AudioPlayerCommand::Pause as u8, Ordering::SeqCst);
+        }
     }
 
     pub(crate) fn stop() {
-        AUDIO_PLAYER
-            .get()
-            .expect("audio player not initialized")
-            .lock()
-            .unwrap()
-            .stop_internal();
+        // Write command first so the callback sees Pause before drain=true.
+        if let Some(cmd) = AUDIO_COMMAND.get() {
+            cmd.store(AudioPlayerCommand::Pause as u8, Ordering::SeqCst);
+        }
+        if let Some(drain) = AUDIO_DRAIN.get() {
+            drain.store(true, Ordering::SeqCst);
+        }
     }
 
     fn init_internal(config: AudioPlayerConfig) -> Self {
@@ -84,37 +87,44 @@ impl AudioPlayer {
         let command = Arc::new(AtomicU8::new(AudioPlayerCommand::Play as u8));
         let drain = Arc::new(AtomicBool::new(false));
 
+        // Publish Arc clones before spawning threads so pause/stop/resume
+        // can reach the atomics without going through the mutex.
+        AUDIO_COMMAND.set(Arc::clone(&command)).ok();
+        AUDIO_DRAIN.set(Arc::clone(&drain)).ok();
+
         let command_cb = Arc::clone(&command);
         let drain_cb = Arc::clone(&drain);
 
         let (completion_tx, completion_rx) = mpsc::channel::<i64>();
 
-        // Fractional position accumulator lives inside the callback closure
         let mut frac: f32 = 0.0;
-        // Small local buffer for speed < 1.0 (we need to repeat samples)
         let mut held_sample: f32 = 0.0;
 
         let device = run_output_device(
             OutputDeviceParameters {
                 channels_count: 1,
                 sample_rate: config.sample_rate as usize,
-                channel_sample_count: 4410, // ~100ms chunks
+                channel_sample_count: 4410,
             },
             move |data| {
-                let cmd = command_cb.load(Ordering::Relaxed);
+                let cmd = command_cb.load(Ordering::Acquire);
 
                 for out in data.iter_mut() {
                     if cmd != AudioPlayerCommand::Play as u8 {
-                        if drain_cb.load(Ordering::Relaxed) {
+                        if drain_cb.load(Ordering::Acquire) {
                             while let Some(s) = consumer.try_pop() {
                                 match s {
-                                    AudioSlot::Sample(s) => *out = s,
+                                    AudioSlot::Sample(_) => {}
                                     AudioSlot::Complete(port) => {
                                         let _ = completion_tx.send(port);
                                     }
                                 }
                             }
-                            drain_cb.store(false, Ordering::Relaxed);
+                            // Reset held_sample so no stale audio leaks
+                            // if playback resumes later.
+                            held_sample = 0.0;
+                            frac = 0.0;
+                            drain_cb.store(false, Ordering::Release);
                         }
                         *out = 0.0;
                         continue;
@@ -122,7 +132,6 @@ impl AudioPlayer {
 
                     frac += 1.0;
 
-                    // Pop as many samples as frac has accumulated
                     while frac >= 1.0 {
                         if let Some(s) = consumer.try_pop() {
                             match s {
@@ -132,7 +141,6 @@ impl AudioPlayer {
                                 }
                             }
                         }
-                        // If ring is empty: output silence (underrun)
                         frac -= 1.0;
                     }
 
@@ -169,20 +177,25 @@ impl AudioPlayer {
     }
 
     fn play_internal(&mut self, samples: &[f32]) {
+        // 1. Cancel any pending drain FIRST, before re-enabling playback.
+        //    SeqCst ensures the audio callback sees drain=false before cmd=Play.
+        self.drain.store(false, Ordering::SeqCst);
         self.command
-            .store(AudioPlayerCommand::Play as u8, Ordering::Relaxed);
+            .store(AudioPlayerCommand::Play as u8, Ordering::SeqCst);
 
         let mut remaining = samples;
 
         while !remaining.is_empty() {
+            if self.command.load(Ordering::Acquire) != AudioPlayerCommand::Play as u8 {
+                break;
+            }
+
             let slots: Vec<AudioSlot> = remaining.iter().map(|&s| AudioSlot::Sample(s)).collect();
-
             let pushed = self.ring_buffer.push_slice(&slots);
-
             remaining = &remaining[pushed..];
 
             if !remaining.is_empty() {
-                std::hint::spin_loop();
+                std::thread::yield_now();
             }
         }
     }
@@ -198,22 +211,6 @@ impl AudioPlayer {
             }
             std::thread::yield_now();
         }
-    }
-
-    fn resume_internal(&self) {
-        self.command
-            .store(AudioPlayerCommand::Play as u8, Ordering::Relaxed);
-    }
-
-    fn pause_internal(&self) {
-        self.command
-            .store(AudioPlayerCommand::Pause as u8, Ordering::Relaxed);
-    }
-
-    fn stop_internal(&mut self) {
-        self.command
-            .store(AudioPlayerCommand::Pause as u8, Ordering::Relaxed);
-        self.drain.store(true, Ordering::Relaxed);
     }
 }
 
@@ -252,5 +249,5 @@ impl AudioPlayerConfig {
 #[derive(Copy, Clone)]
 enum AudioSlot {
     Sample(f32),
-    Complete(i64), // dart port, -1 = no notification needed
+    Complete(i64),
 }
