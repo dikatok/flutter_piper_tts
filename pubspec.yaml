@@ -3,6 +3,7 @@ environment:
   sdk: ">=3.11.5 <4.0.0"
 dev_dependencies:
   melos: ^7.5.1
+  very_good_analysis: ^10.2.0
 workspace:
   - packages/dart_piper_tts
   - packages/flutter_piper_tts

@@ -12,7 +12,7 @@ void main(List<String> args) async {
       return;
     }
 
-    await RustBuilder(
+    await const RustBuilder(
       assetName: 'src/ffi.g.dart',
     ).run(input: input, output: output);
   });
