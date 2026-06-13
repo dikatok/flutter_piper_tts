@@ -1,12 +1,11 @@
 use std::{
-    ffi::{CStr, CString, c_char, c_void},
+    ffi::{CString, c_char, c_void},
     path::Path,
     str::FromStr,
 };
 
 use crate::{
     audio::{AudioPlayer, AudioPlayerConfig, CompletionCallback, DartPort},
-    error::TTSError,
     ffi_helpers::c_char_to_str,
     ffi_response::FFIResponse,
     instance::Instance,
