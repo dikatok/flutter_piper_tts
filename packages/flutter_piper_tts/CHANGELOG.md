@@ -1,3 +1,6 @@
+## 0.4.4
+- Bump dart_piper_tts to 0.2.2
+
 ## 0.4.2
 - Re-add dart_piper_tts version since i am not using melos auto generation
 

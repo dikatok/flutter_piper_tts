@@ -1,6 +1,6 @@
 name: dart_piper_tts
 description: "TTS in Dart using Piper TTS models + audio player in one package."
-version: 0.2.1
+version: 0.2.2
 repository: https://github.com/dikatok/flutter_piper_tts
 topics: [tts, audio, dart]
 
