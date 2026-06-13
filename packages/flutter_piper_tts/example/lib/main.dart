@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_piper_tts/flutter_piper_tts.dart';
@@ -13,9 +12,11 @@ const configFile = 'en_US-lessac-medium.onnx.json';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final (modelPath, configPath) = await copyModelFromAssets();
-  PiperTTS.init(kDebugMode: kDebugMode);
-  final tts = PiperTTS.create(modelPath: modelPath, configPath: configPath);
-  tts.speak('Hello world!');
+  final tts = await PiperTTS.create(
+    modelPath: modelPath,
+    configPath: configPath,
+  );
+  await tts.speak('Hello world!');
   runApp(MyApp(tts: tts));
 }
 
@@ -114,20 +115,20 @@ class _MyAppState extends State<MyApp> {
                   child: const Text("speak phonemes", style: textStyle),
                 ),
                 TextButton(
-                  onPressed: () {
-                    widget.tts.pause();
+                  onPressed: () async {
+                    await widget.tts.pause();
                   },
                   child: const Text("pause", style: textStyle),
                 ),
                 TextButton(
-                  onPressed: () {
-                    widget.tts.resume();
+                  onPressed: () async {
+                    await widget.tts.resume();
                   },
                   child: const Text("resume", style: textStyle),
                 ),
                 TextButton(
-                  onPressed: () {
-                    widget.tts.stop();
+                  onPressed: () async {
+                    await widget.tts.stop();
                   },
                   child: const Text("stop", style: textStyle),
                 ),
