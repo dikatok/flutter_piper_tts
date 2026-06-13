@@ -1,3 +1,6 @@
+## 0.2.3
+- Fix audio playback bleeding issue on the case of "speak" -> "stop" -> "speak"
+
 ## 0.2.2
 - Fix build fail on android 10 and probably other versions
 - Improve pause/stop latency

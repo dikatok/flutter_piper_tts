@@ -1,3 +1,7 @@
+## 0.5.0
+- Use isolate to prevent ui janks
+- Bump dart_piper_tts to 0.2.3
+
 ## 0.4.4
 - Bump dart_piper_tts to 0.2.2
 

@@ -44,43 +44,43 @@ Dict based phonemization is supported via https://crates.io/crates/cmudict-fast 
     await File(configPath).writeAsBytes(bytes, flush: true);
   }
 ```
+- The example below is using flutter_piper_tts
 - Initialize the package
 ```dart
-  PiperTTS.init(kDebugMode: kDebugMode);
-  final tts = PiperTTS.create(modelPath: modelPath, configPath: configPath);
+  final tts = await PiperTTS.create(modelPath: modelPath, configPath: configPath);
 ```
 - Speak
 ```dart
   final text = "Hello world!";
   // by default will wait for spoken word to be completed
-  tts.speak(text, waitForCompletion: true);
+  await tts.speak(text, waitForCompletion: true);
   // fire and forget
-  tts.speak(text, waitForCompletion: false);
+  await tts.speak(text, waitForCompletion: false);
   // phonemization based on g2p mbyt5 model for the whole text/sentence, can be slow for long sentence
-  tts.speak(text, phonemizerStrategy: PhonemizerStrategy.neuralSentence);
+  await tts.speak(text, phonemizerStrategy: PhonemizerStrategy.neuralSentence);
   // same as above, but performed on every word instead, quite a bit faster, but will be missing the sentence context
-  tts.speak(text, phonemizerStrategy: PhonemizerStrategy.neuralWord);
+  await tts.speak(text, phonemizerStrategy: PhonemizerStrategy.neuralWord);
   // phonemization using dict based with cmudict for english and epitran for the rest, with fallback of using neural based for words not found in dict
-  tts.speak(text, phonemizerStrategy: PhonemizerStrategy.dictionaryWithNeuralFallback);
+  await tts.speak(text, phonemizerStrategy: PhonemizerStrategy.dictionaryWithNeuralFallback);
   // same as above, but will omit any words not found
-  tts.speak(text, phonemizerStrategy: PhonemizerStrategy.dictionaryWithOmitUnknown);
+  await tts.speak(text, phonemizerStrategy: PhonemizerStrategy.dictionaryWithOmitUnknown);
 
 ```
 - Pause
 ```dart
-  tts.pause();
+  await tts.pause();
 ```
 - Resume
 ```dart
-  tts.resume();
+  await tts.resume();
 ```
 - Stop
 ```dart
-  tts.stop();
+  await tts.stop();
 ```
 - Dispose (should not be required, but just in case)
 ```dart
-  tts.dispose();
+  await tts.dispose();
 ```
 
 ## Notes
@@ -97,5 +97,4 @@ Dict based phonemization is supported via https://crates.io/crates/cmudict-fast 
 ## TODO
 - Adjust speed (with change in pitch/not)
 - Number support
-- Check possibility of blocking ui thread (jank)
 - Add phoneme override map
