@@ -182,9 +182,14 @@ impl AudioPlayer {
     }
 
     fn play_internal(&mut self, samples: &[f32]) {
-        // 1. Cancel any pending drain FIRST, before re-enabling playback.
-        //    SeqCst ensures the audio callback sees drain=false before cmd=Play.
-        self.drain.store(false, Ordering::SeqCst);
+        // If stop() set a drain, keep cmd=Pause and wait for the audio callback
+        // to empty the ring buffer before pushing new samples. Cancelling drain
+        // early (our previous approach) left stale samples in the buffer,
+        // causing old speech to bleed through before the new one started.
+        while self.drain.load(Ordering::Acquire) {
+            std::thread::yield_now();
+        }
+
         self.command
             .store(AudioPlayerCommand::Play as u8, Ordering::SeqCst);
 
