@@ -6,84 +6,139 @@ import 'package:flutter/foundation.dart';
 
 export 'package:dart_piper_tts/dart_piper_tts.dart' show PhonemizerStrategy;
 
-// --- 1. INTERNAL MESSAGE CLASSES ---
-// These safely cross the isolate boundary.
-sealed class _TtsCommand {}
+// --- 1. INTERNAL SERVICE PROTOCOL ---
+
+sealed class _TtsCommand {
+  final int? instanceId;
+  final SendPort replyPort;
+  _TtsCommand(this.instanceId, this.replyPort);
+}
+
+class _CreateInstanceCmd extends _TtsCommand {
+  final String modelPath;
+  final String configPath;
+
+  _CreateInstanceCmd(SendPort replyPort, this.modelPath, this.configPath)
+    : super(null, replyPort);
+}
 
 class _SpeakCmd extends _TtsCommand {
-  final SendPort replyPort;
   final String text;
   final bool waitForCompletion;
   final native_piper.PhonemizerStrategy strategy;
 
-  _SpeakCmd(this.replyPort, this.text, this.waitForCompletion, this.strategy);
+  _SpeakCmd(
+    super.instanceId,
+    super.replyPort,
+    this.text,
+    this.waitForCompletion,
+    this.strategy,
+  );
 }
 
 class _SpeakPhonemesCmd extends _TtsCommand {
-  final SendPort replyPort;
   final String phonemes;
   final bool waitForCompletion;
 
-  _SpeakPhonemesCmd(this.replyPort, this.phonemes, this.waitForCompletion);
+  _SpeakPhonemesCmd(
+    super.instanceId,
+    super.replyPort,
+    this.phonemes,
+    this.waitForCompletion,
+  );
 }
 
-enum _SimpleCmdAction { pause, resume, stop, dispose }
+enum _SimpleAction { pause, resume, stop, dispose }
 
 class _SimpleCmd extends _TtsCommand {
-  final SendPort replyPort;
-  final _SimpleCmdAction action;
-
-  _SimpleCmd(this.replyPort, this.action);
+  final _SimpleAction action;
+  _SimpleCmd(super.instanceId, super.replyPort, this.action);
 }
 
-class _IsolateInitData {
-  final SendPort replyPort;
-  final String modelPath;
-  final String configPath;
+// --- 2. PUBLIC CLIENT API WRAPPER ---
 
-  _IsolateInitData(this.replyPort, this.modelPath, this.configPath);
-}
-
-// --- 2. PUBLIC API WRAPPER ---
-
-/// An asynchronous, non-blocking wrapper for PiperTTS.
-/// Offloads all FFI calls to a background isolate to prevent UI jank.
+/// An asynchronous, non-blocking interface for the Piper Text-to-Speech (TTS) engine.
+///
+/// This class acts as a client handle that communicates with a centralized, shared
+/// background isolate. Offloading heavy native FFI allocations and processing
+/// ensures your Flutter UI thread runs completely free of jank.
 class PiperTTS {
-  final SendPort _commandPort;
+  static SendPort? _sharedWorkerPort;
+  static final List<Completer<SendPort>> _workerSpawnQueue = [];
+
+  final int _instanceId;
   bool _isDisposed = false;
 
-  PiperTTS._(this._commandPort);
+  PiperTTS._(this._instanceId);
 
-  /// Initializes the background isolate and loads the Piper model.
+  /// Standardizes worker initialization ensuring only ONE background isolate ever spawns.
+  static Future<SendPort> _getWorkerPort() async {
+    if (_sharedWorkerPort != null) return _sharedWorkerPort!;
+
+    if (_workerSpawnQueue.isNotEmpty) {
+      final completer = Completer<SendPort>();
+      _workerSpawnQueue.add(completer);
+      return completer.future;
+    }
+
+    final primaryCompleter = Completer<SendPort>();
+    _workerSpawnQueue.add(primaryCompleter);
+
+    final initPort = ReceivePort();
+    await Isolate.spawn(_ttsWorkerIsolate, initPort.sendPort);
+    _sharedWorkerPort = await initPort.first as SendPort;
+
+    for (final completer in _workerSpawnQueue) {
+      if (!completer.isCompleted) completer.complete(_sharedWorkerPort);
+    }
+    _workerSpawnQueue.clear();
+
+    return _sharedWorkerPort!;
+  }
+
+  /// Allocates and initializes a new native voice model instance inside the shared
+  /// background worker isolate.
+  ///
+  /// * [modelPath]: The absolute local file path to the Piper `.onnx` voice model.
+  /// * [configPath]: The absolute local file path to the accompanying `.json` configuration file.
+  ///
+  /// Throws an [Exception] if the background worker fails to spin up or if the native
+  /// voice initialization fails (e.g., file not found, bad model format).
   static Future<PiperTTS> create({
     required String modelPath,
     required String configPath,
   }) async {
-    final initPort = ReceivePort();
+    final worker = await _getWorkerPort();
+    final replyPort = ReceivePort();
 
-    await Isolate.spawn(
-      _ttsWorkerIsolate,
-      _IsolateInitData(initPort.sendPort, modelPath, configPath),
-    );
+    worker.send(_CreateInstanceCmd(replyPort.sendPort, modelPath, configPath));
+    final response = await replyPort.first;
 
-    final response = await initPort.first;
-
-    if (response is Exception) {
-      throw response;
-    }
-
-    return PiperTTS._(response as SendPort);
+    if (response is Exception) throw response;
+    return PiperTTS._(response as int);
   }
 
-  /// Sends a command to the isolate and waits for the result.
+  /// Sends an internal command payload to the background isolate thread and awaits its status response.
   Future<void> _sendCommand(_TtsCommand command, ReceivePort port) async {
-    if (_isDisposed) throw Exception('PiperTTS is disposed');
-    _commandPort.send(command);
+    if (_isDisposed) throw Exception('PiperTTS instance is disposed');
+    final worker = await _getWorkerPort();
+    worker.send(command);
 
     final result = await port.first;
     if (result is Exception) throw result;
   }
 
+  /// Synthesizes the given [text] into speech.
+  ///
+  /// * [text]: The plain text string to be converted to speech.
+  /// * [waitForCompletion]: When set to `true` (default), the returned [Future] completes
+  ///   only after the audio synthesis and playback have finished completely. When `false`,
+  ///   the method returns as soon as the playback job has been queued up natively.
+  /// * [phonemizerStrategy]: The level of optimization used by the text phonemizer. Defaults
+  ///   to [PhonemizerStrategy.neuralWord].
+  ///
+  /// Throws an [Exception] if this instance has been disposed, or if a native rendering
+  /// error occurs.
   Future<void> speak(
     String text, {
     bool waitForCompletion = true,
@@ -92,72 +147,125 @@ class PiperTTS {
   }) async {
     final port = ReceivePort();
     await _sendCommand(
-      _SpeakCmd(port.sendPort, text, waitForCompletion, phonemizerStrategy),
+      _SpeakCmd(
+        _instanceId,
+        port.sendPort,
+        text,
+        waitForCompletion,
+        phonemizerStrategy,
+      ),
       port,
     );
   }
 
+  /// Synthesizes speech directly using pre-computed native [phonemes].
+  ///
+  /// This method skips standard textual phonemization pipelines, lowering latency when
+  /// reusing cached phoneme sequences.
+  ///
+  /// * [phonemes]: The raw phoneme tokens to render.
+  /// * [waitForCompletion]: When set to `true` (default), the returned [Future] completes
+  ///   only after the audio synthesis and playback have finished completely.
+  ///
+  /// Throws an [Exception] if this instance has been disposed, or if a native rendering
+  /// error occurs.
   Future<void> speakFromPhonemes({
     required String phonemes,
     bool waitForCompletion = true,
   }) async {
     final port = ReceivePort();
     await _sendCommand(
-      _SpeakPhonemesCmd(port.sendPort, phonemes, waitForCompletion),
+      _SpeakPhonemesCmd(
+        _instanceId,
+        port.sendPort,
+        phonemes,
+        waitForCompletion,
+      ),
       port,
     );
   }
 
+  /// Pauses the current audio playback stream for this instance.
+  ///
+  /// Active synthesis jobs remain loaded in memory and can be resumed with [resume].
   Future<void> pause() async {
     final port = ReceivePort();
-    await _sendCommand(_SimpleCmd(port.sendPort, .pause), port);
+    await _sendCommand(
+      _SimpleCmd(_instanceId, port.sendPort, _SimpleAction.pause),
+      port,
+    );
   }
 
+  /// Resumes an audio playback stream that was previously suspended by a call to [pause].
   Future<void> resume() async {
     final port = ReceivePort();
-    await _sendCommand(_SimpleCmd(port.sendPort, .resume), port);
+    await _sendCommand(
+      _SimpleCmd(_instanceId, port.sendPort, _SimpleAction.resume),
+      port,
+    );
   }
 
+  /// Immediately halts any audio playback and synthesis processing running on this instance.
   Future<void> stop() async {
     final port = ReceivePort();
-    await _sendCommand(_SimpleCmd(port.sendPort, .stop), port);
+    await _sendCommand(
+      _SimpleCmd(_instanceId, port.sendPort, _SimpleAction.stop),
+      port,
+    );
   }
 
+  /// Cleanly closes this handle and deallocates its underlying native model resources.
+  ///
+  /// Once a [PiperTTS] instance is disposed, calling any execution methods on it will
+  /// throw an error. Subsequent requests should allocate a new object via [create].
   Future<void> dispose() async {
     if (_isDisposed) return;
     _isDisposed = true;
     final port = ReceivePort();
-    await _sendCommand(_SimpleCmd(port.sendPort, .dispose), port);
+    await _sendCommand(
+      _SimpleCmd(_instanceId, port.sendPort, _SimpleAction.dispose),
+      port,
+    );
   }
 }
 
 // --- 3. BACKGROUND WORKER ISOLATE ---
 
-/// The entry point for the background isolate.
-/// All heavy native FFI work happens safely here.
-void _ttsWorkerIsolate(_IsolateInitData data) {
+void _ttsWorkerIsolate(SendPort mainIsolatePort) {
   final commandPort = ReceivePort();
-  late native_piper.PiperTTS tts;
+  mainIsolatePort.send(commandPort.sendPort);
 
-  try {
-    // Initialize the native layer inside this specific isolate
-    native_piper.PiperTTS.init(kDebugMode: kDebugMode);
+  native_piper.PiperTTS.init(kDebugMode: kDebugMode);
 
-    // Load the model (This is the heaviest operation)
-    tts = native_piper.PiperTTS.create(
-      modelPath: data.modelPath,
-      configPath: data.configPath,
-    );
+  final Map<int, native_piper.PiperTTS> activeInstances = {};
+  int nextInstanceId = 0;
 
-    // Send the command port back to the main thread
-    data.replyPort.send(commandPort.sendPort);
-  } catch (e) {
-    data.replyPort.send(Exception('Failed to initialize PiperTTS: $e'));
-    return;
-  }
-
-  // Listen for instructions from the main thread
   commandPort.listen((message) async {
+    if (message is _CreateInstanceCmd) {
+      try {
+        final tts = native_piper.PiperTTS.create(
+          modelPath: message.modelPath,
+          configPath: message.configPath,
+        );
+        final id = nextInstanceId++;
+        activeInstances[id] = tts;
+        message.replyPort.send(id);
+      } catch (e) {
+        message.replyPort.send(
+          Exception('Failed to initialize PiperTTS Instance: $e'),
+        );
+      }
+      return;
+    }
+
+    final tts = activeInstances[message.instanceId];
+    if (tts == null) {
+      message.replyPort.send(
+        Exception('Native instance already dropped or invalid.'),
+      );
+      return;
+    }
+
     if (message is _SpeakCmd) {
       try {
         await tts.speak(
@@ -165,7 +273,7 @@ void _ttsWorkerIsolate(_IsolateInitData data) {
           waitForCompletion: message.waitForCompletion,
           phonemizerStrategy: message.strategy,
         );
-        message.replyPort.send(true); // Success
+        message.replyPort.send(true);
       } catch (e) {
         message.replyPort.send(Exception(e.toString()));
       }
@@ -182,18 +290,18 @@ void _ttsWorkerIsolate(_IsolateInitData data) {
     } else if (message is _SimpleCmd) {
       try {
         switch (message.action) {
-          case .pause:
+          case _SimpleAction.pause:
             tts.pause();
             break;
-          case .resume:
+          case _SimpleAction.resume:
             tts.resume();
             break;
-          case .stop:
+          case _SimpleAction.stop:
             tts.stop();
             break;
-          case .dispose:
+          case _SimpleAction.dispose:
             tts.dispose();
-            commandPort.close(); // Kills the isolate safely
+            activeInstances.remove(message.instanceId);
             break;
         }
         message.replyPort.send(true);
