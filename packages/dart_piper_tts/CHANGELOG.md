@@ -1,3 +1,6 @@
+## 0.2.4
+- Fix possible no no-op init
+
 ## 0.2.3
 - Fix audio playback bleeding issue on the case of "speak" -> "stop" -> "speak"
 
