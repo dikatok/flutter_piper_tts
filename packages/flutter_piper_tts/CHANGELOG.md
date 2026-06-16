@@ -1,3 +1,6 @@
+## 0.5.1
+- Fix issue when creating multiple instances, older instances are not able to wait for completion
+
 ## 0.5.0
 - Use isolate to prevent ui janks
 - Bump dart_piper_tts to 0.2.3
