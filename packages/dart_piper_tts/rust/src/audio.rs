@@ -33,11 +33,9 @@ pub(crate) struct AudioPlayer {
 
 impl AudioPlayer {
     pub(crate) fn init(config: AudioPlayerConfig) {
-        AUDIO_PLAYER.get_or_init(|| {
-            let mut cb_guard = AUDIO_COMPLETION_CB.write().unwrap();
-            *cb_guard = Some(Mutex::new(config.completion_callback));
-            Mutex::new(AudioPlayer::init_internal(config))
-        });
+        let mut cb_guard = AUDIO_COMPLETION_CB.write().unwrap();
+        *cb_guard = Some(Mutex::new(config.completion_callback));
+        AUDIO_PLAYER.get_or_init(|| Mutex::new(AudioPlayer::init_internal(config)));
     }
 
     pub(crate) fn play(samples: &[f32]) {
