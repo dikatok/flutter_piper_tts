@@ -3,7 +3,7 @@ use std::{
     path::Path,
     sync::{
         Arc,
-        atomic::{AtomicBool, AtomicU8, Ordering},
+        atomic::{AtomicU8, Ordering},
         mpsc::{self, Sender},
     },
 };
@@ -68,12 +68,14 @@ impl Instance {
 
         std::thread::spawn(move || {
             while let Ok(task) = rx.recv() {
-                if state_cb.load(Ordering::Acquire) == InstanceState::Stop as u8 {
-                    continue;
-                }
-
-                if state_cb.load(Ordering::Acquire) == InstanceState::Pause as u8 {
-                    std::thread::yield_now();
+                match state_cb.load(Ordering::Acquire) {
+                    state if state == InstanceState::Stop as u8 => {
+                        continue;
+                    }
+                    state if state == InstanceState::Pause as u8 => {
+                        std::thread::yield_now();
+                    }
+                    _ => (),
                 }
 
                 let SpeechTask {
@@ -108,12 +110,14 @@ impl Instance {
                         }
                     };
 
-                    if state_cb.load(Ordering::Acquire) == InstanceState::Stop as u8 {
-                        break 'chunks;
-                    }
-
-                    if state_cb.load(Ordering::Acquire) == InstanceState::Pause as u8 {
-                        std::thread::yield_now();
+                    match state_cb.load(Ordering::Acquire) {
+                        state if state == InstanceState::Stop as u8 => {
+                            break 'chunks;
+                        }
+                        state if state == InstanceState::Pause as u8 => {
+                            std::thread::yield_now();
+                        }
+                        _ => (),
                     }
 
                     AudioPlayer::play(&samples);

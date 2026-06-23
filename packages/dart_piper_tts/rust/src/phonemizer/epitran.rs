@@ -55,10 +55,10 @@ pub enum EpitranLang {
     AmhEthi, // Amharic (Ethiopic)
     AraArab, // Arabic (Perso-Arabic)
     AzeCyrl, // Azerbaijani (Cyrillic)
-    AzeLatn, // Azerbaijani (Latin)
+    // AzeLatn, // Azerbaijani (Latin)
     BenBeng, // Bengali (Bengali)
     CmnHans, // Mandarin Chinese (Simplified)
-    CmnHant, // Mandarin Chinese (Traditional)
+    // CmnHant, // Mandarin Chinese (Traditional)
     DeuLatn, // German
     EllGrek, // Greek
     EngLatn, // English
@@ -111,10 +111,10 @@ impl EpitranLang {
             Self::AmhEthi => "amh_Ethi",
             Self::AraArab => "ara_Arab",
             Self::AzeCyrl => "aze_Cyrl",
-            Self::AzeLatn => "aze_Latn",
+            // Self::AzeLatn => "aze_Latn",
             Self::BenBeng => "ben_Beng",
             Self::CmnHans => "cmn_Hans",
-            Self::CmnHant => "cmn_Hant",
+            // Self::CmnHant => "cmn_Hant",
             Self::DeuLatn => "deu_Latn",
             Self::EllGrek => "ell_Grek",
             Self::EngLatn => "eng_Latn",
