@@ -1,3 +1,10 @@
+## 0.2.6
+- Improve control latency
+- Expose phoneme chunk size, long sentence = long phoneme = longer wait for low-end hardwares, by chunking it can lower time to first bytes (audio) but can disregard punctuations
+
+## 0.2.5
+- Re-fix? dangling callback during flutter dev hot restart
+
 ## 0.2.4
 - Fix possible no no-op init
 
