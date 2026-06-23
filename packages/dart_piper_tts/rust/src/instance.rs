@@ -24,6 +24,7 @@ struct SpeechTask {
     dart_port: i64,
     is_phonemes: bool,
     phonemization_strategy: PhonemizationStrategy,
+    phoneme_chunk_size: Option<u8>,
 }
 
 enum InstanceState {
@@ -83,6 +84,7 @@ impl Instance {
                     is_phonemes,
                     phonemization_strategy,
                     dart_port,
+                    phoneme_chunk_size,
                 } = task;
 
                 let phonemes = if is_phonemes {
@@ -99,7 +101,14 @@ impl Instance {
 
                 debug!("phonemes: {}", phonemes);
 
-                let phoneme_chunks = split_into_chunks(&phonemes, 80);
+                let chunk_size = phoneme_chunk_size.unwrap_or(80) as usize;
+                debug!("chunk size: {}", chunk_size);
+
+                let phoneme_chunks = if chunk_size == 0 {
+                    vec![phonemes]
+                } else {
+                    split_into_chunks(&phonemes, chunk_size)
+                };
 
                 'chunks: for chunk in phoneme_chunks {
                     let samples = match infer(&mut ort_session, &config, &chunk) {
@@ -141,6 +150,7 @@ impl Instance {
         is_phonemes: bool,
         dart_port: i64,
         phonemization_strategy: PhonemizationStrategy,
+        phoneme_chunk_size: Option<u8>,
     ) -> Result<(), TTSError> {
         self.resume();
 
@@ -150,6 +160,7 @@ impl Instance {
                 is_phonemes,
                 dart_port,
                 phonemization_strategy,
+                phoneme_chunk_size,
             })
             .map_err(|err| TTSError {
                 message: format!("failed to send play speech task: {}", err),

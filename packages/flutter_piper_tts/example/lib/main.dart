@@ -6,8 +6,8 @@ import 'package:flutter_piper_tts/flutter_piper_tts.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 
-const modelFile = 'en_US-lessac-medium.onnx';
-const configFile = 'en_US-lessac-medium.onnx.json';
+const modelFile = 'ne_NP-google-medium.onnx';
+const configFile = 'ne_NP-google-medium.onnx.json';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -110,6 +110,7 @@ class _MyAppState extends State<MyApp> {
                   onPressed: () async {
                     await widget.tts.speakFromPhonemes(
                       phonemes: controller.text,
+                      phonemeChunkSize: 0,
                     );
                   },
                   child: const Text("speak phonemes", style: textStyle),

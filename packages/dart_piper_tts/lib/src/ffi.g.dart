@@ -8,82 +8,71 @@ library;
 import 'dart:ffi' as ffi;
 
 @ffi.Native<
-  FFIInitResponse Function(
+  FFIResponse Function(
     ffi.Pointer<ffi.NativeFunction<ffi.Void Function(ffi.Int64 port)>>,
     ffi.Bool,
   )
 >()
-external FFIInitResponse init(
+external FFIResponse init(
   ffi.Pointer<ffi.NativeFunction<ffi.Void Function(ffi.Int64 port)>>
   completion_cb,
   bool is_debug,
 );
 
 @ffi.Native<
-  FFICreateInstanceResponse Function(
-    ffi.Pointer<ffi.Char>,
-    ffi.Pointer<ffi.Char>,
-  )
+  FFIResponse Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>)
 >()
-external FFICreateInstanceResponse create_instance(
+external FFIResponse create_instance(
   ffi.Pointer<ffi.Char> model_path,
   ffi.Pointer<ffi.Char> config_path,
 );
 
 @ffi.Native<
-  FFISpeakResponse Function(
+  FFIResponse Function(
     ffi.Pointer<ffi.Void>,
     ffi.Pointer<ffi.Char>,
     ffi.Bool,
     ffi.Int64,
     ffi.Pointer<ffi.Char>,
+    ffi.Uint8,
   )
 >()
-external FFISpeakResponse speak(
+external FFIResponse speak(
   ffi.Pointer<ffi.Void> instance_ptr,
   ffi.Pointer<ffi.Char> text,
   bool is_phonemes,
   int port,
   ffi.Pointer<ffi.Char> phonemization_strategy,
+  int phoneme_chunk_size,
 );
 
-@ffi.Native<FFIPauseResponse Function(ffi.Pointer<ffi.Void>)>()
-external FFIPauseResponse pause(ffi.Pointer<ffi.Void> instance_ptr);
+@ffi.Native<FFIResponse Function(ffi.Pointer<ffi.Void>)>()
+external FFIResponse pause(
+  ffi.Pointer<ffi.Void> instance_ptr,
+);
 
-@ffi.Native<FFIResumeResponse Function(ffi.Pointer<ffi.Void>)>()
-external FFIResumeResponse resume(ffi.Pointer<ffi.Void> instance_ptr);
+@ffi.Native<FFIResponse Function(ffi.Pointer<ffi.Void>)>()
+external FFIResponse resume(
+  ffi.Pointer<ffi.Void> instance_ptr,
+);
 
-@ffi.Native<FFIStopResponse Function(ffi.Pointer<ffi.Void>)>()
-external FFIStopResponse stop(ffi.Pointer<ffi.Void> instance_ptr);
+@ffi.Native<FFIResponse Function(ffi.Pointer<ffi.Void>)>()
+external FFIResponse stop(
+  ffi.Pointer<ffi.Void> instance_ptr,
+);
 
 @ffi.Native<ffi.Void Function(ffi.Pointer<ffi.Void>)>()
-external void dispose(ffi.Pointer<ffi.Void> instance_ptr);
+external void dispose(
+  ffi.Pointer<ffi.Void> instance_ptr,
+);
 
 @ffi.Native<ffi.Void Function(ffi.Pointer<ffi.Char>)>()
-external void free_string(ffi.Pointer<ffi.Char> s);
+external void free_string(
+  ffi.Pointer<ffi.Char> s,
+);
 
-final class FFIInitResponse extends ffi.Struct {
-  external ffi.Pointer<ffi.Char> error_message;
-}
+final class FFIResponse extends ffi.Struct {
+  external ffi.Pointer<ffi.Void> ptr;
 
-final class FFICreateInstanceResponse extends ffi.Struct {
-  external ffi.Pointer<ffi.Void> instance;
-
-  external ffi.Pointer<ffi.Char> error_message;
-}
-
-final class FFISpeakResponse extends ffi.Struct {
-  external ffi.Pointer<ffi.Char> error_message;
-}
-
-final class FFIPauseResponse extends ffi.Struct {
-  external ffi.Pointer<ffi.Char> error_message;
-}
-
-final class FFIResumeResponse extends ffi.Struct {
-  external ffi.Pointer<ffi.Char> error_message;
-}
-
-final class FFIStopResponse extends ffi.Struct {
   external ffi.Pointer<ffi.Char> error_message;
 }

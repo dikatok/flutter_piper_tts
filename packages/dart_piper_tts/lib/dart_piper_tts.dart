@@ -65,7 +65,7 @@ class PiperTTS implements Finalizable {
       _nativeCompletionCallback!.nativeFunction,
       kDebugMode,
     );
-    final g.FFIInitResponse(:error_message) = result;
+    final g.FFIResponse(:error_message) = result;
     _checkIfError(error_message);
   }
 
@@ -88,9 +88,9 @@ class PiperTTS implements Finalizable {
         modelPath.toNativeUtf8(allocator: arena).cast(),
         configPath.toNativeUtf8(allocator: arena).cast(),
       );
-      final g.FFICreateInstanceResponse(:instance, :error_message) = result;
+      final g.FFIResponse(:ptr, :error_message) = result;
       _checkIfError(error_message);
-      return PiperTTS._(instance);
+      return PiperTTS._(ptr);
     });
   }
 
@@ -104,11 +104,15 @@ class PiperTTS implements Finalizable {
   /// [phonemizerStrategy] controls how the text is converted to phonemes
   /// before synthesis. Defaults to [PhonemizerStrategy.neuralWord].
   ///
+  /// [phonemeChunkSize] controls the split size of phonemes. Defaults to 80.
+  /// Maximum value is 255 (max of u8). Setting to 0 will disable chunking.
+  ///
   /// Throws an [Exception] if the native layer reports an error.
   Future<void> speak(
     String text, {
     bool waitForCompletion = true,
     PhonemizerStrategy phonemizerStrategy = PhonemizerStrategy.neuralWord,
+    int phonemeChunkSize = 80,
   }) async {
     return using((arena) {
       final id = _nextCompletionId++;
@@ -121,8 +125,9 @@ class PiperTTS implements Finalizable {
         false,
         id,
         phonemizerStrategy.native.toNativeUtf8(allocator: arena).cast(),
+        phonemeChunkSize,
       );
-      final g.FFISpeakResponse(:error_message) = result;
+      final g.FFIResponse(:error_message) = result;
       _checkIfError(error_message);
       if (waitForCompletion) return playbackComplete;
     });
@@ -138,10 +143,14 @@ class PiperTTS implements Finalizable {
   /// completes only after the last audio sample has finished playing. Set it
   /// to `false` to return as soon as synthesis has been enqueued.
   ///
+  /// [phonemeChunkSize] controls the split size of phonemes. Defaults to 80.
+  /// Maximum value is 255 (max of u8). Setting to 0 will disable chunking.
+  ///
   /// Throws an [Exception] if the native layer reports an error.
   Future<void> speakFromPhonemes({
     required String phonemes,
     bool waitForCompletion = true,
+    int phonemeChunkSize = 80,
   }) async {
     return using((arena) {
       final id = _nextCompletionId++;
@@ -156,8 +165,9 @@ class PiperTTS implements Finalizable {
         PhonemizerStrategy.neuralWord.native
             .toNativeUtf8(allocator: arena)
             .cast(),
+        phonemeChunkSize,
       );
-      final g.FFISpeakResponse(:error_message) = result;
+      final g.FFIResponse(:error_message) = result;
       _checkIfError(error_message);
       if (waitForCompletion) return playbackComplete;
     });
@@ -171,7 +181,7 @@ class PiperTTS implements Finalizable {
   /// Throws an [Exception] if the native layer reports an error.
   void pause() {
     final result = g.pause(_instancePtr);
-    final g.FFIPauseResponse(:error_message) = result;
+    final g.FFIResponse(:error_message) = result;
     _checkIfError(error_message);
   }
 
@@ -182,7 +192,7 @@ class PiperTTS implements Finalizable {
   /// Throws an [Exception] if the native layer reports an error.
   void resume() {
     final result = g.resume(_instancePtr);
-    final g.FFIResumeResponse(:error_message) = result;
+    final g.FFIResponse(:error_message) = result;
     _checkIfError(error_message);
   }
 
@@ -195,7 +205,7 @@ class PiperTTS implements Finalizable {
   /// Throws an [Exception] if the native layer reports an error.
   void stop() {
     final result = g.stop(_instancePtr);
-    final g.FFIStopResponse(:error_message) = result;
+    final g.FFIResponse(:error_message) = result;
     _checkIfError(error_message);
   }
 

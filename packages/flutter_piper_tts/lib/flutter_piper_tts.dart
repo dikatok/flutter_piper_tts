@@ -26,6 +26,7 @@ class _SpeakCmd extends _TtsCommand {
   final String text;
   final bool waitForCompletion;
   final native_piper.PhonemizerStrategy strategy;
+  final int phonemeChunkSize;
 
   _SpeakCmd(
     super.instanceId,
@@ -33,18 +34,21 @@ class _SpeakCmd extends _TtsCommand {
     this.text,
     this.waitForCompletion,
     this.strategy,
+    this.phonemeChunkSize,
   );
 }
 
 class _SpeakPhonemesCmd extends _TtsCommand {
   final String phonemes;
   final bool waitForCompletion;
+  int phonemeChunkSize = 80;
 
   _SpeakPhonemesCmd(
     super.instanceId,
     super.replyPort,
     this.phonemes,
     this.waitForCompletion,
+    this.phonemeChunkSize,
   );
 }
 
@@ -136,6 +140,8 @@ class PiperTTS {
   ///   the method returns as soon as the playback job has been queued up natively.
   /// * [phonemizerStrategy]: The level of optimization used by the text phonemizer. Defaults
   ///   to [PhonemizerStrategy.neuralWord].
+  /// * [phonemeChunkSize] controls the split size of phonemes. Defaults to 80.
+  /// Maximum value is 255 (max of u8). Setting to 0 will disable chunking.
   ///
   /// Throws an [Exception] if this instance has been disposed, or if a native rendering
   /// error occurs.
@@ -144,6 +150,7 @@ class PiperTTS {
     bool waitForCompletion = true,
     native_piper.PhonemizerStrategy phonemizerStrategy =
         native_piper.PhonemizerStrategy.neuralWord,
+    int phonemeChunkSize = 80,
   }) async {
     final port = ReceivePort();
     await _sendCommand(
@@ -153,6 +160,7 @@ class PiperTTS {
         text,
         waitForCompletion,
         phonemizerStrategy,
+        phonemeChunkSize,
       ),
       port,
     );
@@ -167,11 +175,15 @@ class PiperTTS {
   /// * [waitForCompletion]: When set to `true` (default), the returned [Future] completes
   ///   only after the audio synthesis and playback have finished completely.
   ///
+  /// * [phonemeChunkSize] controls the split size of phonemes. Defaults to 80.
+  /// Maximum value is 255 (max of u8). Setting to 0 will disable chunking.
+  ///
   /// Throws an [Exception] if this instance has been disposed, or if a native rendering
   /// error occurs.
   Future<void> speakFromPhonemes({
     required String phonemes,
     bool waitForCompletion = true,
+    int phonemeChunkSize = 80,
   }) async {
     final port = ReceivePort();
     await _sendCommand(
@@ -180,6 +192,7 @@ class PiperTTS {
         port.sendPort,
         phonemes,
         waitForCompletion,
+        phonemeChunkSize,
       ),
       port,
     );
@@ -272,6 +285,7 @@ void _ttsWorkerIsolate(SendPort mainIsolatePort) {
           message.text,
           waitForCompletion: message.waitForCompletion,
           phonemizerStrategy: message.strategy,
+          phonemeChunkSize: message.phonemeChunkSize,
         );
         message.replyPort.send(true);
       } catch (e) {
@@ -282,6 +296,7 @@ void _ttsWorkerIsolate(SendPort mainIsolatePort) {
         await tts.speakFromPhonemes(
           phonemes: message.phonemes,
           waitForCompletion: message.waitForCompletion,
+          phonemeChunkSize: message.phonemeChunkSize,
         );
         message.replyPort.send(true);
       } catch (e) {

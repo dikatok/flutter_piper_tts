@@ -2,6 +2,7 @@ use std::{
     ffi::{CString, c_char, c_void},
     path::Path,
     str::FromStr,
+    u8,
 };
 
 use crate::{
@@ -61,6 +62,7 @@ pub extern "C" fn speak(
     is_phonemes: bool,
     port: DartPort,
     phonemization_strategy: *const c_char,
+    phoneme_chunk_size: u8,
 ) -> FFIResponse {
     let text = match c_char_to_str(text) {
         Ok(text) => text,
@@ -76,6 +78,7 @@ pub extern "C" fn speak(
         is_phonemes,
         port.clamp(-1, i64::MAX),
         PhonemizationStrategy::from_str(phonemization_strategy).unwrap(),
+        Some(phoneme_chunk_size.clamp(u8::MIN, u8::MAX)),
     ) {
         Ok(_) => FFIResponse::ok(std::ptr::null_mut()),
         Err(err) => FFIResponse::err(err),

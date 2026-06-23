@@ -20,7 +20,8 @@ struct FFIResponse speak(void *instance_ptr,
                          const char *text,
                          bool is_phonemes,
                          DartPort port,
-                         const char *phonemization_strategy);
+                         const char *phonemization_strategy,
+                         uint8_t phoneme_chunk_size);
 
 struct FFIResponse pause(void *instance_ptr);
 
