@@ -1,7 +1,11 @@
 use std::{
     fs::File,
     path::Path,
-    sync::mpsc::{self, Sender},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicU8, Ordering},
+        mpsc::{self, Sender},
+    },
 };
 
 use log::{debug, error};
@@ -15,20 +19,22 @@ use crate::{
     phonemizer::phonemizer::{PhonemizationStrategy, Phonemizer},
 };
 
-enum SpeechTask {
-    Play {
-        text: String,
-        dart_port: i64,
-        is_phonemes: bool,
-        phonemization_strategy: PhonemizationStrategy,
-    },
-    Resume,
-    Pause,
-    Stop,
+struct SpeechTask {
+    text: String,
+    dart_port: i64,
+    is_phonemes: bool,
+    phonemization_strategy: PhonemizationStrategy,
+}
+
+enum InstanceState {
+    Play = 1,
+    Pause = 2,
+    Stop = 3,
 }
 
 pub(crate) struct Instance {
     speech_tasks: Sender<SpeechTask>,
+    state: Arc<AtomicU8>,
 }
 
 unsafe impl Send for Instance {}
@@ -57,50 +63,72 @@ impl Instance {
 
         let (tx, rx) = mpsc::channel::<SpeechTask>();
 
+        let state = Arc::new(AtomicU8::new(InstanceState::Stop as u8));
+        let state_cb = Arc::clone(&state);
+
         std::thread::spawn(move || {
             while let Ok(task) = rx.recv() {
-                match task {
-                    SpeechTask::Play {
-                        text,
-                        dart_port,
-                        is_phonemes,
-                        phonemization_strategy,
-                    } => {
-                        let phonemes = if is_phonemes {
-                            text
-                        } else {
-                            match Phonemizer::phonemize(&lang, &text, phonemization_strategy) {
-                                Ok(p) => p,
-                                Err(e) => {
-                                    error!("phonemization failed: {}", e);
-                                    continue;
-                                }
-                            }
-                        };
-
-                        debug!("phonemes: {}", phonemes);
-
-                        let samples = match infer(&mut ort_session, &config, &phonemes) {
-                            Ok(s) => s,
-                            Err(e) => {
-                                error!("inference failed: {}", e);
-                                continue;
-                            }
-                        };
-
-                        AudioPlayer::play(&samples);
-                        AudioPlayer::mark_end_of_speech(dart_port);
-                    }
-                    SpeechTask::Resume => AudioPlayer::resume(),
-                    SpeechTask::Pause => AudioPlayer::pause(),
-                    SpeechTask::Stop => AudioPlayer::stop(),
+                if state_cb.load(Ordering::Acquire) == InstanceState::Stop as u8 {
+                    continue;
                 }
+
+                if state_cb.load(Ordering::Acquire) == InstanceState::Pause as u8 {
+                    std::thread::yield_now();
+                }
+
+                let SpeechTask {
+                    text,
+                    is_phonemes,
+                    phonemization_strategy,
+                    dart_port,
+                } = task;
+
+                let phonemes = if is_phonemes {
+                    text
+                } else {
+                    match Phonemizer::phonemize(&lang, &text, phonemization_strategy) {
+                        Ok(p) => p,
+                        Err(e) => {
+                            error!("phonemization failed: {}", e);
+                            continue;
+                        }
+                    }
+                };
+
+                debug!("phonemes: {}", phonemes);
+
+                let phoneme_chunks = split_into_chunks(&phonemes, 80);
+
+                'chunks: for chunk in phoneme_chunks {
+                    let samples = match infer(&mut ort_session, &config, &chunk) {
+                        Ok(s) => s,
+                        Err(e) => {
+                            error!("inference failed: {}", e);
+                            continue;
+                        }
+                    };
+
+                    if state_cb.load(Ordering::Acquire) == InstanceState::Stop as u8 {
+                        break 'chunks;
+                    }
+
+                    if state_cb.load(Ordering::Acquire) == InstanceState::Pause as u8 {
+                        std::thread::yield_now();
+                    }
+
+                    AudioPlayer::play(&samples);
+                }
+
+                AudioPlayer::mark_end_of_speech(dart_port);
             }
 
             debug!("speech task worker exiting");
         });
 
-        Ok(Instance { speech_tasks: tx })
+        Ok(Instance {
+            speech_tasks: tx,
+            state,
+        })
     }
 
     pub(crate) fn speak(
@@ -110,8 +138,10 @@ impl Instance {
         dart_port: i64,
         phonemization_strategy: PhonemizationStrategy,
     ) -> Result<(), TTSError> {
+        self.resume();
+
         self.speech_tasks
-            .send(SpeechTask::Play {
+            .send(SpeechTask {
                 text: text.to_string(),
                 is_phonemes,
                 dart_port,
@@ -125,20 +155,41 @@ impl Instance {
     }
 
     pub(crate) fn pause(&self) {
-        self.speech_tasks
-            .send(SpeechTask::Pause)
-            .expect("failed to send pause speech task");
+        self.state
+            .store(InstanceState::Pause as u8, Ordering::SeqCst);
+
+        AudioPlayer::pause();
     }
 
     pub(crate) fn resume(&self) {
-        self.speech_tasks
-            .send(SpeechTask::Resume)
-            .expect("failed to send resume speech task");
+        self.state
+            .store(InstanceState::Play as u8, Ordering::SeqCst);
+
+        AudioPlayer::resume();
     }
 
     pub(crate) fn stop(&self) {
-        self.speech_tasks
-            .send(SpeechTask::Stop)
-            .expect("failed to send stop speech task");
+        self.state
+            .store(InstanceState::Stop as u8, Ordering::SeqCst);
+
+        AudioPlayer::stop();
     }
+}
+
+fn split_into_chunks(text: &str, max_chars: usize) -> Vec<String> {
+    let mut chunks = Vec::new();
+    let mut current = String::new();
+
+    for piece in text.split_inclusive(|c: char| matches!(c, ' ')) {
+        current.push_str(piece);
+        let ends_sentence = piece.trim_end().ends_with(['.', '!', '?']);
+        if (ends_sentence || current.len() >= max_chars) && !current.trim().is_empty() {
+            chunks.push(current.trim().to_string());
+            current.clear();
+        }
+    }
+    if !current.trim().is_empty() {
+        chunks.push(current.trim().to_string());
+    }
+    chunks
 }

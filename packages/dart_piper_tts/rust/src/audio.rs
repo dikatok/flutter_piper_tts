@@ -13,9 +13,6 @@ use tinyaudio::{OutputDeviceParameters, run_output_device};
 
 static AUDIO_PLAYER: OnceLock<Mutex<AudioPlayer>> = OnceLock::new();
 
-// Clones of the Arc atomics stored outside the mutex so that
-// pause / stop / resume can take effect immediately without
-// waiting for play_internal to release the lock.
 static AUDIO_COMMAND: OnceLock<Arc<AtomicU8>> = OnceLock::new();
 static AUDIO_DRAIN: OnceLock<Arc<AtomicBool>> = OnceLock::new();
 
@@ -58,8 +55,6 @@ impl AudioPlayer {
             .mark_end_of_speech_internal(dart_port);
     }
 
-    // These three bypass the AUDIO_PLAYER mutex so they take effect
-    // immediately, even while play_internal is spinning inside play().
     pub(crate) fn resume() {
         debug!("resuming audio playback");
         if let Some(cmd) = AUDIO_COMMAND.get() {
@@ -76,10 +71,11 @@ impl AudioPlayer {
 
     pub(crate) fn stop() {
         debug!("stopping audio playback");
-        // Write command first so the callback sees Pause before drain=true.
+
         if let Some(cmd) = AUDIO_COMMAND.get() {
             cmd.store(AudioPlayerCommand::Pause as u8, Ordering::SeqCst);
         }
+
         if let Some(drain) = AUDIO_DRAIN.get() {
             drain.store(true, Ordering::SeqCst);
         }
@@ -92,8 +88,6 @@ impl AudioPlayer {
         let command = Arc::new(AtomicU8::new(AudioPlayerCommand::Play as u8));
         let drain = Arc::new(AtomicBool::new(false));
 
-        // Publish Arc clones before spawning threads so pause/stop/resume
-        // can reach the atomics without going through the mutex.
         AUDIO_COMMAND.set(Arc::clone(&command)).ok();
         AUDIO_DRAIN.set(Arc::clone(&drain)).ok();
 
@@ -125,8 +119,7 @@ impl AudioPlayer {
                                     }
                                 }
                             }
-                            // Reset held_sample so no stale audio leaks
-                            // if playback resumes later.
+
                             held_sample = 0.0;
                             frac = 0.0;
                             drain_cb.store(false, Ordering::Release);
@@ -182,21 +175,16 @@ impl AudioPlayer {
     }
 
     fn play_internal(&mut self, samples: &[f32]) {
-        // If stop() set a drain, keep cmd=Pause and wait for the audio callback
-        // to empty the ring buffer before pushing new samples. Cancelling drain
-        // early (our previous approach) left stale samples in the buffer,
-        // causing old speech to bleed through before the new one started.
         while self.drain.load(Ordering::Acquire) {
             std::thread::yield_now();
         }
 
-        self.command
-            .store(AudioPlayerCommand::Play as u8, Ordering::SeqCst);
-
         let mut remaining = samples;
 
         while !remaining.is_empty() {
-            if self.command.load(Ordering::Acquire) != AudioPlayerCommand::Play as u8 {
+            if self.command.load(Ordering::Acquire) != AudioPlayerCommand::Play as u8
+                && self.drain.load(Ordering::Acquire)
+            {
                 break;
             }
 
