@@ -233,12 +233,12 @@ class PiperTTS {
   /// throw an error. Subsequent requests should allocate a new object via [create].
   Future<void> dispose() async {
     if (_isDisposed) return;
-    _isDisposed = true;
     final port = ReceivePort();
     await _sendCommand(
       _SimpleCmd(_instanceId, port.sendPort, _SimpleAction.dispose),
       port,
     );
+    _isDisposed = true;
   }
 }
 
