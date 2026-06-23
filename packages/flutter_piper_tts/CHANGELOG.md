@@ -1,3 +1,8 @@
+## 0.5.2
+- Improve control latency
+- Expose phoneme chunk size, long sentence = long phoneme = longer wait for low-end hardwares, by chunking it can lower time to first bytes (audio) but can disregard punctuations
+- Fix dispose
+
 ## 0.5.1
 - Fix issue when creating multiple instances, older instances are not able to wait for completion
 
